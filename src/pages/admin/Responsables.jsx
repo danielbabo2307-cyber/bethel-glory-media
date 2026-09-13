@@ -132,8 +132,7 @@ function Responsables() {
 
       console.log("📡 Chargement des responsables...")
 
-      const response = await api.get("/responsables")
-
+const response = await api.get("/responsables/public")
       const result = response.data
 
       console.log("📦 Réponse responsables :", result)
@@ -170,6 +169,8 @@ function Responsables() {
 
         console.log("🖼️ URL PHOTO =", url)
       })
+      console.log("👥 RESPONSABLES REÇUS :", data)
+console.log("🔢 NOMBRE REÇU :", data.length)
 
       setResponsables(data)
     } catch (err) {
