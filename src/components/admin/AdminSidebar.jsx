@@ -1,4 +1,6 @@
+
 import { Link, useLocation } from "react-router-dom"
+import dani from "../../assets/dani.jpg"
 
 function AdminSidebar() {
   const location = useLocation()
@@ -64,7 +66,7 @@ function AdminSidebar() {
             {/* LOGO - visible surtout sur ordinateur */}
             <div className="hidden md:flex shrink-0 items-center gap-3 px-3 pr-5">
               <img
-                src="/src/assets/dani.jpg"
+                src={dani}
                 alt="BETHEL GLORY"
                 className="h-10 w-10 rounded-2xl object-cover shadow-md"
               />
@@ -73,6 +75,7 @@ function AdminSidebar() {
                 <p className="text-[11px] font-black tracking-[0.18em] text-green-950">
                   BETHEL
                 </p>
+
                 <p className="text-[9px] font-semibold tracking-[0.12em] text-gray-400">
                   ADMINISTRATION
                 </p>
@@ -105,7 +108,8 @@ function AdminSidebar() {
                       }
                     `}
                   >
-                    {/* indicateur actif */}
+
+                    {/* INDICATEUR ACTIF */}
                     {active && (
                       <span className="absolute -top-1 h-1 w-5 rounded-full bg-yellow-400" />
                     )}
@@ -137,9 +141,11 @@ function AdminSidebar() {
                     >
                       {item.label}
                     </span>
+
                   </Link>
                 )
               })}
+
             </div>
 
             {/* VOIR LE SITE */}
