@@ -34,11 +34,19 @@ function Login() {
       console.log("📡 Tentative de connexion...")
 
       // ==================================================
+      // URL API
+      // ==================================================
+
+      const API_URL =
+        import.meta.env.VITE_API_URL ||
+        "http://localhost:5000"
+
+      // ==================================================
       // 2. CONNEXION
       // ==================================================
 
       const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
+        `${API_URL}/api/auth/login`,
         {
           email: email.trim(),
           mot_de_passe: motDePasse,
@@ -104,7 +112,6 @@ function Login() {
           "📦 PAYLOAD JWT :",
           payload
         )
-
       } catch (error) {
         console.error(
           "❌ ERREUR LECTURE JWT :",
@@ -145,7 +152,7 @@ function Login() {
       )
 
       const userResponse = await axios.get(
-        `http://localhost:5000/api/utilisateurs/${payload.id}`,
+        `${API_URL}/api/utilisateurs/${payload.id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -316,7 +323,6 @@ function Login() {
       navigate("/admin", {
         replace: true,
       })
-
     } catch (error) {
       console.error(
         "❌ ERREUR CONNEXION :",
@@ -333,13 +339,11 @@ function Login() {
           error.response.data?.message ||
             "Email ou mot de passe incorrect."
         )
-
       } else {
         setErreur(
-          "Impossible de contacter le serveur. Vérifie que Node.js est démarré."
+          "Impossible de contacter le serveur. Vérifie que le serveur est accessible."
         )
       }
-
     } finally {
       setChargement(false)
     }
@@ -424,7 +428,6 @@ function Login() {
         ================================================== */}
 
         <form onSubmit={handleSubmit}>
-
           {/* EMAIL */}
 
           <div
@@ -542,7 +545,6 @@ function Login() {
         >
           ← Retour au site
         </Link>
-
       </div>
     </div>
   )

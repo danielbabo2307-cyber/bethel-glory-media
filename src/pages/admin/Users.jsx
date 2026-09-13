@@ -667,8 +667,7 @@ function Users() {
                                 src={
                                   user.photo.startsWith("http")
                                     ? user.photo
-                                    : `http://localhost:5000${user.photo.startsWith("/") ? "" : "/"}${user.photo}`
-                                }
+: `${import.meta.env.VITE_API_URL || "http://localhost:5000"}${user.photo.startsWith("/") ? "" : "/"}${user.photo}`                                }
                                 alt={`${user.prenom} ${user.nom}`}
                                 className="
                                   h-14 w-14

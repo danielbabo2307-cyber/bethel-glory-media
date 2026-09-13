@@ -6,8 +6,9 @@ import { useEffect, useState } from "react"
 // URL DU SERVEUR
 // ==================================================
 
-const API_URL = "http://localhost:5000"
-
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000"
 // ==================================================
 // THÈME PAR DÉFAUT
 // Utilisé uniquement si l'API ne répond pas

@@ -8,6 +8,14 @@ function AssistantIA() {
   const [loading, setLoading] = useState(false)
 
   // ============================================================
+  // URL API
+  // ============================================================
+
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000"
+
+  // ============================================================
   // OUTILS IA
   // ============================================================
 
@@ -69,11 +77,20 @@ function AssistantIA() {
       )
 
       console.log(
+        "🌐 API :",
+        `${API_URL}/api/ai/creation`
+      )
+
+      console.log(
         "=========================================="
       )
 
+      // ========================================================
+      // APPEL API
+      // ========================================================
+
       const response = await fetch(
-        "http://localhost:5000/api/ai/creation",
+        `${API_URL}/api/ai/creation`,
         {
           method: "POST",
 
@@ -87,6 +104,10 @@ function AssistantIA() {
           }),
         }
       )
+
+      // ========================================================
+      // LECTURE DE LA RÉPONSE
+      // ========================================================
 
       let data = null
 
@@ -103,6 +124,10 @@ function AssistantIA() {
         data
       )
 
+      // ========================================================
+      // ERREUR SERVEUR
+      // ========================================================
+
       if (!response.ok) {
         throw new Error(
           data.message ||
@@ -110,11 +135,19 @@ function AssistantIA() {
         )
       }
 
+      // ========================================================
+      // VÉRIFICATION DU RÉSULTAT
+      // ========================================================
+
       if (!data.result) {
         throw new Error(
           "Gemini n'a retourné aucun résultat."
         )
       }
+
+      // ========================================================
+      // AFFICHAGE
+      // ========================================================
 
       setResult(data.result)
 
@@ -388,15 +421,11 @@ function AssistantIA() {
                         : "bg-green-100"
                     }`}
                   >
-                    {
-                      tool.icon
-                    }
+                    {tool.icon}
                   </div>
 
                   <h3 className="relative text-xl font-black transition-transform duration-300 group-hover:translate-x-1">
-                    {
-                      tool.title
-                    }
+                    {tool.title}
                   </h3>
 
                   <p
@@ -406,9 +435,7 @@ function AssistantIA() {
                         : "text-gray-600"
                     }`}
                   >
-                    {
-                      tool.description
-                    }
+                    {tool.description}
                   </p>
 
                   <div

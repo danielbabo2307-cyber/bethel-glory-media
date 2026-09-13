@@ -6,12 +6,21 @@ function Contact() {
   const [formData, setFormData] = useState({
     nom: "",
     email: "",
+    telephone: "",
     message: "",
   })
 
   const [envoi, setEnvoi] = useState(false)
   const [succes, setSucces] = useState("")
   const [erreur, setErreur] = useState("")
+
+  // ============================================================
+  // URL API
+  // ============================================================
+
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000"
 
   // ============================================================
   // GESTION DES CHAMPS
@@ -47,7 +56,7 @@ function Contact() {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/contact",
+        `${API_URL}/api/contact`,
         {
           method: "POST",
 
@@ -58,6 +67,7 @@ function Contact() {
           body: JSON.stringify({
             nom: formData.nom,
             email: formData.email,
+            telephone: formData.telephone,
             message: formData.message,
           }),
         }
@@ -83,6 +93,7 @@ function Contact() {
       setFormData({
         nom: "",
         email: "",
+        telephone: "",
         message: "",
       })
     } catch (error) {
@@ -397,9 +408,9 @@ function Contact() {
           }
         }
       `}</style>
- 
+
       <Navbar />
-     
+
       <main className="page-fade pt-24">
 
         {/* ============================================================
@@ -407,8 +418,6 @@ function Contact() {
         ============================================================ */}
 
         <section className="relative overflow-hidden bg-green-950 px-6 pb-24 pt-20 text-white md:pb-28 md:pt-24">
-
-          {/* Décorations animées */}
 
           <div className="floating absolute -left-24 top-10 h-72 w-72 rounded-full bg-green-700/30 blur-3xl" />
 
@@ -422,20 +431,12 @@ function Contact() {
 
           <div className="relative z-10 mx-auto max-w-6xl text-center">
 
-            {/* Badge */}
-
             <div
               className="hero-fade-down inline-flex items-center gap-2 rounded-full border border-green-700/60 bg-green-900/70 px-5 py-2 text-xs font-black uppercase tracking-[0.2em] text-green-200 backdrop-blur-sm"
             >
-
               <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-400" />
-
               BETHEL GLORY MEDIA
-
             </div>
-
-
-            {/* Petit titre */}
 
             <p
               className="hero-fade-up mt-8 text-sm font-black uppercase tracking-[0.25em] text-yellow-400"
@@ -445,9 +446,6 @@ function Contact() {
             >
               Contact
             </p>
-
-
-            {/* Titre */}
 
             <h1
               className="hero-fade-up mx-auto mt-4 max-w-4xl text-4xl font-black leading-tight tracking-tight sm:text-5xl md:text-6xl"
@@ -461,9 +459,6 @@ function Contact() {
               </span>
             </h1>
 
-
-            {/* Description */}
-
             <p
               className="hero-fade-up mx-auto mt-6 max-w-2xl text-base leading-8 text-green-100 md:text-lg"
               style={{
@@ -473,9 +468,6 @@ function Contact() {
               Une question, une information ou simplement envie de nous
               contacter ? L'équipe de BETHEL GLORY MEDIA est à votre écoute.
             </p>
-
-
-            {/* Statistiques */}
 
             <div className="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
 
@@ -501,13 +493,9 @@ function Contact() {
 
           </div>
 
-
-          {/* Transition */}
-
           <div className="absolute bottom-0 left-0 h-16 w-full bg-gradient-to-t from-[#f6f8f7] to-transparent" />
 
         </section>
-
 
         {/* ============================================================
             INTRO
@@ -556,7 +544,6 @@ function Contact() {
 
         </section>
 
-
         {/* ============================================================
             CONTACT + FORMULAIRE
         ============================================================ */}
@@ -564,8 +551,6 @@ function Contact() {
         <section className="px-6 pb-20">
 
           <div className="mx-auto max-w-6xl">
-
-            {/* Titre de section */}
 
             <div
               className="content-appear mb-10"
@@ -599,9 +584,7 @@ function Contact() {
 
             </div>
 
-
             <div className="grid gap-8 lg:grid-cols-2">
-
 
               {/* ========================================================
                   INFORMATIONS
@@ -609,23 +592,19 @@ function Contact() {
 
               <div className="space-y-5">
 
-
                 <div
                   className="card-left"
                   style={{
                     animationDelay: "0.25s",
                   }}
                 >
-
                   <ContactCard
                     icon="📍"
                     title="Localisation"
                     label="Retrouvez-nous"
                     text="Abidjan, Côte d'Ivoire"
                   />
-
                 </div>
-
 
                 <div
                   className="card-left"
@@ -633,7 +612,6 @@ function Contact() {
                     animationDelay: "0.4s",
                   }}
                 >
-
                   <ContactCard
                     icon="📞"
                     title="Téléphone"
@@ -641,9 +619,7 @@ function Contact() {
                     text="+225 05 02 00 42 28"
                     href="tel:+2250502004228"
                   />
-
                 </div>
-
 
                 <div
                   className="card-left"
@@ -651,7 +627,6 @@ function Contact() {
                     animationDelay: "0.55s",
                   }}
                 >
-
                   <ContactCard
                     icon="✉️"
                     title="Email"
@@ -659,11 +634,7 @@ function Contact() {
                     text="danielbabo2307@gmail.com"
                     href="mailto:danielbabo2307@gmail.com"
                   />
-
                 </div>
-
-
-                {/* Petit bloc information */}
 
                 <div
                   className="content-appear relative overflow-hidden rounded-[2rem] bg-green-950 p-7 text-white shadow-xl"
@@ -710,7 +681,6 @@ function Contact() {
 
               </div>
 
-
               {/* ========================================================
                   FORMULAIRE
               ======================================================== */}
@@ -751,10 +721,7 @@ function Contact() {
 
                 </div>
 
-
-                {/* ======================================================
-                    MESSAGE DE SUCCÈS
-                ====================================================== */}
+                {/* MESSAGE DE SUCCÈS */}
 
                 {succes && (
 
@@ -784,10 +751,7 @@ function Contact() {
 
                 )}
 
-
-                {/* ======================================================
-                    MESSAGE D'ERREUR
-                ====================================================== */}
+                {/* MESSAGE D'ERREUR */}
 
                 {erreur && (
 
@@ -817,13 +781,9 @@ function Contact() {
 
                 )}
 
-
                 <form onSubmit={handleSubmit}>
 
-
-                  {/* ==================================================
-                      NOM
-                  ================================================== */}
+                  {/* NOM */}
 
                   <div>
 
@@ -850,10 +810,7 @@ function Contact() {
 
                   </div>
 
-
-                  {/* ==================================================
-                      EMAIL
-                  ================================================== */}
+                  {/* EMAIL */}
 
                   <div className="mt-5">
 
@@ -876,13 +833,21 @@ function Contact() {
                       disabled={envoi}
                       className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-gray-900 outline-none transition-all duration-300 placeholder:text-gray-400 focus:border-green-600 focus:bg-white focus:ring-4 focus:ring-green-100 disabled:cursor-not-allowed disabled:opacity-60"
                     />
-                     <label
-                      htmlFor="email"
+
+                  </div>
+
+                  {/* TELEPHONE */}
+
+                  <div className="mt-5">
+
+                    <label
+                      htmlFor="telephone"
                       className="mb-2 block text-sm font-bold text-gray-700"
                     >
                       Votre numéro de téléphone
                     </label>
-                     <input
+
+                    <input
                       id="telephone"
                       name="telephone"
                       type="tel"
@@ -897,10 +862,7 @@ function Contact() {
 
                   </div>
 
-
-                  {/* ==================================================
-                      MESSAGE
-                  ================================================== */}
+                  {/* MESSAGE */}
 
                   <div className="mt-5">
 
@@ -931,10 +893,7 @@ function Contact() {
 
                   </div>
 
-
-                  {/* ==================================================
-                      BOUTON
-                  ================================================== */}
+                  {/* BOUTON */}
 
                   <button
                     type="submit"
@@ -947,19 +906,16 @@ function Contact() {
                     {envoi ? (
 
                       <>
-
                         <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
 
                         <span>
                           Envoi en cours...
                         </span>
-
                       </>
 
                     ) : (
 
                       <>
-
                         <span>
                           Envoyer le message
                         </span>
@@ -967,13 +923,11 @@ function Contact() {
                         <span className="text-xl transition-transform duration-300 group-hover:translate-x-2">
                           →
                         </span>
-
                       </>
 
                     )}
 
                   </button>
-
 
                   <p className="mt-4 text-center text-xs leading-5 text-gray-400">
                     Vos informations sont utilisées uniquement pour traiter
@@ -990,7 +944,6 @@ function Contact() {
 
         </section>
 
-
         {/* ============================================================
             CTA FINAL
         ============================================================ */}
@@ -1004,14 +957,11 @@ function Contact() {
             }}
           >
 
-            {/* Décorations */}
-
             <div className="floating absolute -left-20 -top-20 h-52 w-52 rounded-full bg-green-700/30 blur-3xl" />
 
             <div className="floating-reverse absolute -bottom-24 -right-16 h-64 w-64 rounded-full bg-yellow-400/10 blur-3xl" />
 
             <div className="glow-pulse absolute left-1/2 top-1/2 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-green-500/10 blur-3xl" />
-
 
             <div className="relative z-10">
 
@@ -1032,7 +982,6 @@ function Contact() {
                 église et notre ministère.
               </p>
 
-
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
 
                 <a
@@ -1049,7 +998,6 @@ function Contact() {
                   </span>
 
                 </a>
-
 
                 <a
                   href="mailto:danielbabo2307@gmail.com"
@@ -1082,7 +1030,6 @@ function Contact() {
   )
 }
 
-
 /* ================================================================
    HERO STAT
 ================================================================ */
@@ -1112,7 +1059,6 @@ function HeroStat({
   )
 }
 
-
 /* ================================================================
    CONTACT CARD
 ================================================================ */
@@ -1127,8 +1073,6 @@ function ContactCard({
   const content = (
     <div className="group flex items-center gap-5 rounded-[2rem] border border-green-100 bg-white p-5 shadow-sm transition-all duration-500 hover:-translate-y-2 hover:border-green-200 hover:shadow-xl md:p-6">
 
-      {/* Icône */}
-
       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-100 text-2xl transition-all duration-500 group-hover:rotate-3 group-hover:scale-110 group-hover:bg-green-950">
 
         <span className="transition-transform duration-300 group-hover:scale-110">
@@ -1136,9 +1080,6 @@ function ContactCard({
         </span>
 
       </div>
-
-
-      {/* Contenu */}
 
       <div className="min-w-0">
 
@@ -1155,7 +1096,6 @@ function ContactCard({
         </p>
 
       </div>
-
 
       {href && (
 
