@@ -1,0 +1,88 @@
+﻿# ============================================================
+# DEPENDANCES
+# ============================================================
+node_modules/
+**/node_modules/
+
+# ============================================================
+# BUILD
+# ============================================================
+dist/
+dist-ssr/
+
+# ============================================================
+# VARIABLES D'ENVIRONNEMENT / SECRETS
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# LOGS
+# ============================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ============================================================
+# EDITEURS
+# ============================================================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================================
+# UPLOADS LOCAUX
+# ============================================================
+server/uploads/
+
+# ============================================================
+# FICHIERS DE SAUVEGARDE / TEMPORAIRES
+# ============================================================
+*.sql
+*.sql.gz
+*.bak
+*.backup
+
+backup-*/
+backups-*/
+
+# Scripts temporaires de génération de modèles
+creer-modeles-*.ps1
+generer-modeles-*.ps1
+renommer-modeles-*.ps1
+
+# Fichiers de mapping temporaires
+imports-modeles-*.txt
+mapping-modeles-*.txt
+mapping-renommage-*.txt
+
+# ============================================================
+# FICHIERS SYSTEME
+# ============================================================
+Thumbs.db
+desktop.ini
+# Sauvegardes de fichiers
+*.backup
+*.backup-*
+*.sauvegarde
+*.sauvegarde-*
+*.avant-correction
+*.bak
+
+# Dossiers de sauvegarde
+backup-*/
+backups-*/
+
+# Script local de création du compte administrateur
+server/createAdmin.js

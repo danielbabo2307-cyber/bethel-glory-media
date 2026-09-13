@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+/* =========================================================
+   BETHEL GLORY MEDIA
+   ANIMATIONS
+   ========================================================= */
+
+
+/* =========================================================
+   APPARITION DU CONTENU
+   ========================================================= */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.9s ease-out both;
+}
+
+
+/* =========================================================
+   TITRE
+   ========================================================= */
+
+@keyframes titleAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+.animate-title {
+  animation: titleAppear 1s ease-out 0.15s both;
+}
+
+
+/* =========================================================
+   DESCRIPTION
+   ========================================================= */
+
+@keyframes descriptionAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+.animate-description {
+  animation: descriptionAppear 0.8s ease-out 0.35s both;
+}
+
+
+/* =========================================================
+   BOUTONS
+   ========================================================= */
+
+@keyframes buttonsAppear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+.animate-buttons {
+  animation: buttonsAppear 0.8s ease-out 0.55s both;
+}
+
+
+/* =========================================================
+   AFFICHAGE DEPUIS LA DROITE
+   ========================================================= */
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(70px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+.animate-slide-in-right {
+  animation: slideInRight 1s ease-out both;
+}
+
+
+/* =========================================================
+   EFFET FLOTTANT
+   ========================================================= */
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   LUMIÈRE DE FOND GAUCHE
+   ========================================================= */
+
+@keyframes lightMoveLeft {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(30px, 20px) scale(1.1);
+  }
+}
+
+
+.hero-light-left {
+  animation: lightMoveLeft 7s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   LUMIÈRE DE FOND DROITE
+   ========================================================= */
+
+@keyframes lightMoveRight {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(-30px, -20px) scale(1.08);
+  }
+}
+
+
+.hero-light-right {
+  animation: lightMoveRight 8s ease-in-out infinite;
+}
+
+
+/* =========================================================
+   CARTES
+   ========================================================= */
+
+.feature-card {
+  transition:
+    transform 0.35s ease,
+    box-shadow 0.35s ease,
+    border-color 0.35s ease;
+}
+
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.10);
+}
+
+
+/* =========================================================
+   ÉTAPES
+   ========================================================= */
+
+.step-item {
+  transition:
+    transform 0.3s ease,
+    padding-left 0.3s ease;
+}
+
+
+.step-item:hover {
+  transform: translateX(6px);
+}
+
+
+/* =========================================================
+   MENU MOBILE
+   ========================================================= */
+
+@keyframes mobileMenu {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+.animate-mobile-menu {
+  animation: mobileMenu 0.25s ease-out both;
+}
+
+
+/* =========================================================
+   ACCESSIBILITÉ
+   Réduit les animations si l'utilisateur préfère
+   moins de mouvements.
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

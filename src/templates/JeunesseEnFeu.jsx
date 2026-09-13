@@ -1,0 +1,165 @@
+
+function JeunesseEnFeu({
+  image,
+  date,
+  logo,
+  assemblee,
+  assembleeData,
+  nomAssemblee,
+  ville,
+  quartier,
+  adresse,
+  telephone,
+  logoAssemblee,
+  assembleeId,
+}) {
+  // ============================================================
+  // INFORMATIONS DYNAMIQUES DE L'ASSEMBLÉE
+  // ============================================================
+
+  const nom =
+    nomAssemblee ||
+    assembleeData?.nom ||
+    assemblee?.nom ||
+    "Assemblée"
+
+  const logoFinal =
+    logoAssemblee ||
+    logo ||
+    ""
+
+  const villeFinal =
+    ville ||
+    assembleeData?.ville ||
+    assemblee?.ville ||
+    ""
+
+  const quartierFinal =
+    quartier ||
+    assembleeData?.quartier ||
+    assemblee?.quartier ||
+    ""
+
+  return (
+    <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-2xl bg-red-950 shadow-2xl">
+
+      {/* PHOTO */}
+      {image ? (
+        <img
+          src={image}
+          alt="Publication"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-950">
+          <div className="text-center text-white">
+            <div className="text-5xl">🖼️</div>
+            <p className="mt-3 text-sm text-red-200">
+              Votre photo apparaîtra ici
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* VOILE */}
+      <div className="absolute inset-0 bg-gradient-to-t from-red-950/95 via-red-950/10 to-transparent" />
+
+      {/* FORMES DYNAMIQUES */}
+      <div className="pointer-events-none absolute bottom-24 -left-16 h-40 w-40 rotate-12 rounded-[35%] bg-red-600/20" />
+      <div className="pointer-events-none absolute bottom-20 -right-20 h-44 w-44 -rotate-12 rounded-[35%] bg-orange-500/10" />
+
+      {/* BANNIÈRE ANGULAIRE */}
+      <div className="absolute bottom-0 left-0 right-0">
+
+        <div className="relative overflow-hidden bg-gradient-to-r from-red-950 via-red-800 to-black px-3 py-4 shadow-2xl sm:px-4 sm:py-5">
+
+          {/* COUPE DIAGONALE */}
+          <div className="absolute -left-10 -top-10 h-20 w-32 rotate-12 bg-red-500/20" />
+          <div className="absolute -right-10 bottom-0 h-20 w-32 -rotate-12 bg-orange-400/10" />
+
+          {/* LIGNE */}
+          <div className="absolute left-0 right-0 top-0 h-[3px] bg-gradient-to-r from-yellow-300 via-orange-400 to-red-500" />
+
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center">
+
+            {/* LOGO */}
+            <div className="flex shrink-0 justify-center">
+              {logoFinal ? (
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg border-2 border-orange-400 bg-red-950 p-1 shadow-lg sm:h-14 sm:w-14">
+                  <img
+                    src={logoFinal}
+                    alt={`Logo ${nom}`}
+                    className="h-full w-full rounded-lg object-contain"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none"
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg border-2 border-orange-400 bg-red-950 text-xl text-orange-300 sm:h-14 sm:w-14">
+                  ✝
+                </div>
+              )}
+            </div>
+
+            {/* CENTRE */}
+            <div className="min-w-0 flex-1 text-center">
+
+              <div className="flex items-center justify-center gap-2">
+
+                <span className="text-orange-400">⚡</span>
+
+                <div className="h-[2px] flex-1 bg-gradient-to-r from-transparent to-orange-400/70" />
+
+                <span className="text-[8px] font-black tracking-[0.2em] text-orange-200 sm:text-[10px]">
+                  EPICI
+                </span>
+
+                <div className="h-[2px] flex-1 bg-gradient-to-l from-transparent to-orange-400/70" />
+
+                <span className="text-orange-400">⚡</span>
+
+              </div>
+
+              {/* NOM DYNAMIQUE DE L'ASSEMBLÉE */}
+              <h2 className="mt-1 text-[10px] font-black uppercase tracking-wider text-white sm:text-[13px]">
+                {nom}
+              </h2>
+
+              {/* VILLE / QUARTIER */}
+              {(villeFinal || quartierFinal) && (
+                <p className="mt-0.5 text-[7px] font-medium text-orange-200 sm:text-[9px]">
+                  {villeFinal}
+                  {villeFinal && quartierFinal ? " • " : ""}
+                  {quartierFinal}
+                </p>
+              )}
+
+            </div>
+
+            {/* DATE */}
+            <div className="flex w-full flex-col items-center border-t border-orange-400/30 pt-2 sm:w-[85px] sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+
+              <span className="text-sm text-yellow-300">
+                🔥
+              </span>
+
+              <span className="text-[8px] font-bold uppercase tracking-wider text-orange-200">
+                Dimanche
+              </span>
+
+              <span className="mt-1 text-[9px] font-black text-yellow-300 sm:text-[11px]">
+                {date}
+              </span>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default JeunesseEnFeu
+
