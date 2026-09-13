@@ -15,6 +15,12 @@ const jwt = require("jsonwebtoken")
 const bcrypt = require("bcryptjs")
 const { Resend } = require("resend")
 const { GoogleGenAI } = require("@google/genai")
+const { v2: cloudinary } = require("cloudinary")
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+})
 
 const {
   verifierToken,
@@ -278,7 +284,38 @@ function supprimerPhoto(photo) {
     )
   }
 }
+ // ============================================================
+// UPLOAD PHOTO RESPONSABLE VERS CLOUDINARY
+// ============================================================
 
+async function envoyerPhotoResponsableCloudinary(
+  cheminFichier
+) {
+  if (!cheminFichier) {
+    return null
+  }
+
+  try {
+    const resultat =
+      await cloudinary.uploader.upload(
+        cheminFichier,
+        {
+          folder:
+            "bethel-glory-media/responsables",
+          resource_type: "image",
+        }
+      )
+
+    return resultat.secure_url
+  } catch (error) {
+    console.error(
+      "❌ Erreur upload Cloudinary :",
+      error.message
+    )
+
+    throw error
+  }
+}
 // ============================================================
 // SUPPRESSION FICHIER PUBLICATION
 // ============================================================
@@ -2237,49 +2274,133 @@ app.get(
 // RESPONSABLES ADMIN
 // ============================================================
 
-app.get(
+app.post(
   "/api/responsables",
   verifierToken,
   verifierAdministrateur,
+  uploadResponsable.single(
+    "photo"
+  ),
   async (req, res) => {
     try {
+      const {
+        nom,
+        prenom,
+        fonction,
+        description,
+      } = req.body
+
+      const fonctionNormalisee =
+        normaliserFonction(
+          fonction
+        )
+
+      if (
+        !nom ||
+        !prenom ||
+        !fonctionNormalisee
+      ) {
+        if (req.file) {
+          supprimerPhoto(
+            req.file.filename
+          )
+        }
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Nom, prénom et fonction sont obligatoires.",
+        })
+      }
+
+      if (
+        !fonctionsAutorisees.includes(
+          fonctionNormalisee
+        )
+      ) {
+        if (req.file) {
+          supprimerPhoto(
+            req.file.filename
+          )
+        }
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Fonction non autorisée.",
+        })
+      }
+
+      // ========================================================
+      // UPLOAD CLOUDINARY
+      // ========================================================
+
+      let photo = null
+
+      if (req.file) {
+        photo =
+          await envoyerPhotoResponsableCloudinary(
+            req.file.path
+          )
+
+        // Suppression du fichier temporaire local
+        supprimerPhoto(
+          req.file.filename
+        )
+      }
+
+      // ========================================================
+      // ENREGISTREMENT MYSQL
+      // ========================================================
+
       const [
-        rows,
-      ] = await db.query(`
-        SELECT
-          id,
-          assemblee_id,
+        resultat,
+      ] = await db.query(
+        `
+        INSERT INTO utilisateurs
+        (
           nom,
           prenom,
-          email,
-          telephone,
           fonction,
           photo,
-          statut,
           role,
-          created_at,
-          updated_at,
-          NULL AS description
-        FROM utilisateurs
-        WHERE role = 'responsable'
-        ORDER BY id DESC
-      `)
+          statut
+        )
+        VALUES (?, ?, ?, ?, 'responsable', 1)
+        `,
+        [
+          nom,
+          prenom,
+          fonctionNormalisee,
+          photo,
+        ]
+      )
 
-      res.json({
+      res.status(201).json({
         success: true,
-        responsables:
-          rows,
+        message:
+          "Responsable créé avec succès.",
+        id:
+          resultat.insertId,
+        photo,
       })
     } catch (error) {
+      // Suppression du fichier temporaire
+      if (req.file) {
+        supprimerPhoto(
+          req.file.filename
+        )
+      }
+
       console.error(
-        "âŒ RESPONSABLES :",
-        error.message
+        "❌ CREATION RESPONSABLE :",
+        error
       )
 
       res.status(500).json({
         success: false,
         message:
-          "Erreur rÃ©cupÃ©ration responsables.",
+          "Erreur création responsable.",
       })
     }
   }
@@ -2324,7 +2445,7 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "Nom, prÃ©nom et fonction sont obligatoires.",
+            "Nom, prenom et fonction sont obligatoires.",
         })
       }
 
@@ -2342,7 +2463,7 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "Fonction non autorisÃ©e.",
+            "Fonction non autorisée.",
         })
       }
 
@@ -2377,7 +2498,7 @@ app.post(
       res.status(201).json({
         success: true,
         message:
-          "Responsable crÃ©Ã© avec succÃ¨s.",
+          "Responsable crée avec succès.",
         id:
           resultat.insertId,
         photo,
@@ -2390,18 +2511,22 @@ app.post(
       }
 
       console.error(
-        "âŒ CREATION RESPONSABLE :",
+        "❌ CREATION RESPONSABLE :",
         error
       )
 
       res.status(500).json({
         success: false,
         message:
-          "Erreur crÃ©ation responsable.",
+          "Erreur création responsable.",
       })
     }
   }
 )
+
+// ============================================================
+// MODIFIER RESPONSABLE
+// ============================================================
 
 // ============================================================
 // MODIFIER RESPONSABLE
@@ -2493,17 +2618,32 @@ app.put(
         return res.status(400).json({
           success: false,
           message:
-            "Fonction non autorisÃ©e.",
+            "Fonction non autorisée.",
         })
       }
+
+      // ========================================================
+      // PHOTO
+      // ========================================================
 
       let nouvellePhoto =
         ancien.photo
 
       if (req.file) {
         nouvellePhoto =
-          `/uploads/responsables/${req.file.filename}`
+          await envoyerPhotoResponsableCloudinary(
+            req.file.path
+          )
+
+        // Supprimer le fichier temporaire local
+        supprimerPhoto(
+          req.file.filename
+        )
       }
+
+      // ========================================================
+      // MISE À JOUR MYSQL
+      // ========================================================
 
       await db.query(
         `
@@ -2525,19 +2665,12 @@ app.put(
         ]
       )
 
-      if (
-        req.file &&
-        ancien.photo
-      ) {
-        supprimerPhoto(
-          ancien.photo
-        )
-      }
-
       res.json({
         success: true,
         message:
-          "Responsable modifiÃ© avec succÃ¨s.",
+          "Responsable modifié avec succès.",
+        photo:
+          nouvellePhoto,
       })
     } catch (error) {
       if (req.file) {
@@ -2547,7 +2680,7 @@ app.put(
       }
 
       console.error(
-        "âŒ MODIFICATION RESPONSABLE :",
+        "❌ MODIFICATION RESPONSABLE :",
         error
       )
 
@@ -2604,10 +2737,20 @@ app.delete(
         `,
         [id]
       )
-
-      supprimerPhoto(
-        rows[0].photo
-      )
+// Supprimer uniquement les anciennes photos locales
+if (
+  rows[0].photo &&
+  !String(rows[0].photo).startsWith(
+    "http://"
+  ) &&
+  !String(rows[0].photo).startsWith(
+    "https://"
+  )
+) {
+  supprimerPhoto(
+    rows[0].photo
+  )
+}
 
       res.json({
         success: true,
