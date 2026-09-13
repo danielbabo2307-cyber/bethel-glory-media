@@ -38,10 +38,14 @@ function InternetGuard({ children }) {
 
         const timeout = setTimeout(() => {
           controller.abort()
-        }, 5000)
+        }, 10000)
+
+        const apiUrl =
+          import.meta.env.VITE_API_URL ||
+          "http://localhost:5000"
 
         const response = await fetch(
-          "http://localhost:5000/api/test-db",
+          `${apiUrl}/api/responsables/public`,
           {
             method: "GET",
             signal: controller.signal,
@@ -56,9 +60,18 @@ function InternetGuard({ children }) {
           setApiAvailable(true)
         } else {
           setApiAvailable(false)
+
+          console.error(
+            "❌ Serveur accessible mais réponse incorrecte :",
+            response.status
+          )
         }
       } catch (error) {
-        console.error("❌ API inaccessible :", error)
+        console.error(
+          "❌ API inaccessible :",
+          error
+        )
+
         setApiAvailable(false)
       }
     }
@@ -144,6 +157,7 @@ function InternetGuard({ children }) {
 
               <span className="relative flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
               </span>
 
