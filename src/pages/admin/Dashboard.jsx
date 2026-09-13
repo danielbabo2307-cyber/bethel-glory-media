@@ -2,10 +2,12 @@ import AdminSidebar from "../../components/admin/AdminSidebar"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../../services/api"
+import dani from "../../assets/dani.jpg"
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "http://localhost:5000"
+
 // ==================================================
 // PHOTO
 // ==================================================
@@ -653,8 +655,12 @@ function Dashboard() {
         "📡 Chargement des responsables..."
       )
 
+      // IMPORTANT :
+      // Le Dashboard lit simplement les responsables.
+      // La route publique permet de les récupérer
+      // sans exiger l'authentification administrateur.
       const response = await api.get(
-        "/responsables"
+        "/responsables/public"
       )
 
       console.log(
@@ -808,6 +814,8 @@ function Dashboard() {
         }
       )
 
+      // IMPORTANT :
+      // L'ajout reste protégé.
       const response =
         await api.post(
           "/responsables",
@@ -833,10 +841,8 @@ function Dashboard() {
           "Responsable ajouté avec succès.",
       })
 
-      // Recharger la liste
       await fetchResponsables()
 
-      // Nettoyer le formulaire
       setAjoutResponsable({
         nom: "",
         prenom: "",
@@ -853,7 +859,6 @@ function Dashboard() {
 
       setPreviewPhotoResponsable(null)
 
-      // Fermer automatiquement
       setTimeout(() => {
         setShowAjoutResponsable(false)
 
@@ -1336,7 +1341,7 @@ function Dashboard() {
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0b3328] shadow-sm">
 
                 <img
-                  src="/src/assets/dani.jpg"
+                  src={dani}
                   alt="BETHEL GLORY"
                   className="h-10 w-10 rounded-2xl object-cover shadow-md"
                 />
@@ -2505,19 +2510,13 @@ function Dashboard() {
               }
             >
 
-              {/* BARRE SUPÉRIEURE */}
-
               <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#0b3328] via-[#d4af37] to-[#0b3328]" />
-
-              {/* DÉCORATIONS */}
 
               <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-[#d4af37]/10 blur-2xl" />
 
               <div className="absolute -bottom-24 -left-20 h-44 w-44 rounded-full bg-[#0b3328]/10 blur-2xl" />
 
               <div className="relative px-6 pb-7 pt-8 sm:px-8">
-
-                {/* FERMER */}
 
                 <button
                   type="button"
@@ -2532,8 +2531,6 @@ function Dashboard() {
                 >
                   ×
                 </button>
-
-                {/* EN-TÊTE */}
 
                 <div className="flex items-center gap-4">
 
@@ -2562,8 +2559,6 @@ function Dashboard() {
                   </div>
 
                 </div>
-
-                {/* MESSAGE */}
 
                 {messageAjoutResponsable.texte && (
 
@@ -2611,8 +2606,6 @@ function Dashboard() {
 
                 )}
 
-                {/* FORMULAIRE */}
-
                 <form
                   onSubmit={
                     ajouterResponsable
@@ -2621,8 +2614,6 @@ function Dashboard() {
                 >
 
                   <div className="grid gap-4 sm:grid-cols-2">
-
-                    {/* PRÉNOM */}
 
                     <div>
 
@@ -2652,8 +2643,6 @@ function Dashboard() {
                       />
 
                     </div>
-
-                    {/* NOM */}
 
                     <div>
 
@@ -2685,8 +2674,6 @@ function Dashboard() {
                     </div>
 
                   </div>
-
-                  {/* FONCTION */}
 
                   <div className="mt-4">
 
@@ -2741,8 +2728,6 @@ function Dashboard() {
 
                   </div>
 
-                  {/* PHOTO */}
-
                   <div className="mt-4">
 
                     <label className="mb-2 block text-[10px] font-black uppercase tracking-wider text-gray-500">
@@ -2752,8 +2737,6 @@ function Dashboard() {
                     <div className="rounded-[24px] border border-dashed border-black/10 bg-gray-50 p-4">
 
                       <div className="flex flex-col items-center gap-4 sm:flex-row">
-
-                        {/* APERÇU */}
 
                         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/[0.05]">
 
@@ -2788,8 +2771,6 @@ function Dashboard() {
                           )}
 
                         </div>
-
-                        {/* CHOIX FICHIER */}
 
                         <div className="min-w-0 flex-1 text-center sm:text-left">
 
@@ -2840,8 +2821,6 @@ function Dashboard() {
                     </div>
 
                   </div>
-
-                  {/* BOUTONS */}
 
                   <div className="mt-7 grid grid-cols-2 gap-3">
 
