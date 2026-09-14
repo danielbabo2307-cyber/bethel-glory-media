@@ -289,6 +289,7 @@ function supprimerPhoto(photo) {
 // ============================================================
 
 async function envoyerPhotoResponsableCloudinary(
+  
   cheminFichier
 ) {
   if (!cheminFichier) {
@@ -310,6 +311,33 @@ async function envoyerPhotoResponsableCloudinary(
   } catch (error) {
     console.error(
       "❌ Erreur upload Cloudinary :",
+      error.message
+    )
+
+    throw error
+  }
+}
+async function envoyerLogoAssembleeCloudinary(cheminFichier) {
+  if (!cheminFichier) return null
+
+  try {
+    const resultat = await cloudinary.uploader.upload(
+      cheminFichier,
+      {
+        folder: "bethel-glory-media/assemblees/logos",
+        resource_type: "image",
+      }
+    )
+
+    console.log(
+      "✅ Logo assemblée envoyé sur Cloudinary :",
+      resultat.secure_url
+    )
+
+    return resultat.secure_url
+  } catch (error) {
+    console.error(
+      "❌ Erreur upload logo assemblée Cloudinary :",
       error.message
     )
 
@@ -573,7 +601,45 @@ const uploadPublication =
       }
     },
   })
+const storageLogo = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, logosDir)
+  },
 
+  filename: (req, file, cb) => {
+    const extension = path.extname(file.originalname)
+    const nom = `logo-${Date.now()}${extension}`
+
+    cb(null, nom)
+  },
+})
+
+const uploadLogo = multer({
+  storage: storageLogo,
+
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+  },
+
+  fileFilter: (req, file, cb) => {
+    const typesAutorises = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/jpg",
+    ]
+
+    if (typesAutorises.includes(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(
+        new Error(
+          "Le logo doit être une image JPEG, PNG ou WEBP"
+        )
+      )
+    }
+  },
+})
 // ============================================================
 // VÃ‰RIFICATION STRUCTURE UTILISATEURS
 // ============================================================
@@ -2335,455 +2401,484 @@ app.post(
       // UPLOAD CLOUDINARY
       // ========================================================
 
-      let photo = null
+        let photo = null
 
-      if (req.file) {
-        photo =
-          await envoyerPhotoResponsableCloudinary(
-            req.file.path
-          )
-
-        // Suppression du fichier temporaire local
-        supprimerPhoto(
-          req.file.filename
-        )
-      }
-
-      // ========================================================
-      // ENREGISTREMENT MYSQL
-      // ========================================================
-
-      const [
-        resultat,
-      ] = await db.query(
-        `
-        INSERT INTO utilisateurs
-        (
-          nom,
-          prenom,
-          fonction,
-          photo,
-          role,
-          statut
-        )
-        VALUES (?, ?, ?, ?, 'responsable', 1)
-        `,
-        [
-          nom,
-          prenom,
-          fonctionNormalisee,
-          photo,
-        ]
-      )
-
-      res.status(201).json({
-        success: true,
-        message:
-          "Responsable créé avec succès.",
-        id:
-          resultat.insertId,
-        photo,
-      })
-    } catch (error) {
-      // Suppression du fichier temporaire
-      if (req.file) {
-        supprimerPhoto(
-          req.file.filename
-        )
-      }
-
-      console.error(
-        "❌ CREATION RESPONSABLE :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur création responsable.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// CRÃ‰ER RESPONSABLE
-// ============================================================
-
-app.post(
-  "/api/responsables",
-  verifierToken,
-  verifierAdministrateur,
-  uploadResponsable.single(
-    "photo"
-  ),
-  async (req, res) => {
-    try {
-      const {
-        nom,
-        prenom,
-        fonction,
-        description,
-      } = req.body
-
-      const fonctionNormalisee =
-        normaliserFonction(
-          fonction
-        )
-
-      if (
-        !nom ||
-        !prenom ||
-        !fonctionNormalisee
-      ) {
         if (req.file) {
-          supprimerPhoto(
-            req.file.filename
-          )
-        }
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Nom, prenom et fonction sont obligatoires.",
-        })
-      }
-
-      if (
-        !fonctionsAutorisees.includes(
-          fonctionNormalisee
-        )
-      ) {
-        if (req.file) {
-          supprimerPhoto(
-            req.file.filename
-          )
-        }
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Fonction non autorisée.",
-        })
-      }
-
-      const photo =
-        req.file
-          ? `/uploads/responsables/${req.file.filename}`
-          : null
-
-      const [
-        resultat,
-      ] = await db.query(
-        `
-        INSERT INTO utilisateurs
-        (
-          nom,
-          prenom,
-          fonction,
-          photo,
-          role,
-          statut
-        )
-        VALUES (?, ?, ?, ?, 'responsable', 1)
-        `,
-        [
-          nom,
-          prenom,
-          fonctionNormalisee,
-          photo,
-        ]
-      )
-
-      res.status(201).json({
-        success: true,
-        message:
-          "Responsable crée avec succès.",
-        id:
-          resultat.insertId,
-        photo,
-      })
-    } catch (error) {
-      if (req.file) {
-        supprimerPhoto(
-          req.file.filename
-        )
-      }
-
-      console.error(
-        "❌ CREATION RESPONSABLE :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur création responsable.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// MODIFIER RESPONSABLE
-// ============================================================
-
-// ============================================================
-// MODIFIER RESPONSABLE
-// ============================================================
-
-app.put(
-  "/api/responsables/:id",
-  verifierToken,
-  verifierAdministrateur,
-  uploadResponsable.single(
-    "photo"
-  ),
-  async (req, res) => {
-    try {
-      const id =
-        req.params.id
-
-      const [
-        anciens,
-      ] = await db.query(
-        `
-        SELECT
-          id,
-          assemblee_id,
-          nom,
-          prenom,
-          email,
-          telephone,
-          fonction,
-          photo,
-          statut,
-          role,
-          created_at,
-          updated_at,
-          NULL AS description
-        FROM utilisateurs
-        WHERE id = ?
-          AND role = 'responsable'
-        LIMIT 1
-        `,
-        [id]
-      )
-
-      if (
-        anciens.length === 0
-      ) {
-        if (req.file) {
-          supprimerPhoto(
-            req.file.filename
-          )
-        }
-
-        return res.status(404).json({
-          success: false,
-          message:
-            "Responsable introuvable.",
-        })
-      }
-
-      const ancien =
-        anciens[0]
-
-      const {
-        nom,
-        prenom,
-        fonction,
-        description,
-      } = req.body
-
-      const fonctionNormalisee =
-        fonction !== undefined
-          ? normaliserFonction(
-              fonction
+          photo =
+            await envoyerPhotoResponsableCloudinary(
+              req.file.path
             )
-          : ancien.fonction
 
-      if (
-        fonctionNormalisee &&
-        !fonctionsAutorisees.includes(
-          fonctionNormalisee
+          // Suppression du fichier temporaire local
+          supprimerPhoto(
+            req.file.filename
+          )
+        }
+
+        // ========================================================
+        // ENREGISTREMENT MYSQL
+        // ========================================================
+
+        const [
+          resultat,
+        ] = await db.query(
+          `
+          INSERT INTO utilisateurs
+          (
+            nom,
+            prenom,
+            fonction,
+            photo,
+            role,
+            statut
+          )
+          VALUES (?, ?, ?, ?, 'responsable', 1)
+          `,
+          [
+            nom,
+            prenom,
+            fonctionNormalisee,
+            photo,
+          ]
         )
-      ) {
+
+        res.status(201).json({
+          success: true,
+          message:
+            "Responsable créé avec succès.",
+          id:
+            resultat.insertId,
+          photo,
+        })
+      } catch (error) {
+        // Suppression du fichier temporaire
         if (req.file) {
           supprimerPhoto(
             req.file.filename
           )
         }
 
-        return res.status(400).json({
+        console.error(
+          "❌ CREATION RESPONSABLE :",
+          error
+        )
+
+        res.status(500).json({
           success: false,
           message:
-            "Fonction non autorisée.",
+            "Erreur création responsable.",
         })
       }
+    }
+  )
 
-      // ========================================================
-      // PHOTO
-      // ========================================================
+  // ============================================================
+  // CRÃ‰ER RESPONSABLE
+  // ============================================================
 
-      let nouvellePhoto =
-        ancien.photo
+  app.post(
+    "/api/responsables",
+    verifierToken,
+    verifierAdministrateur,
+    uploadResponsable.single(
+      "photo"
+    ),
+    async (req, res) => {
+      try {
+        const {
+          nom,
+          prenom,
+          fonction,
+          description,
+        } = req.body
 
-      if (req.file) {
-        nouvellePhoto =
-          await envoyerPhotoResponsableCloudinary(
-            req.file.path
+        const fonctionNormalisee =
+          normaliserFonction(
+            fonction
           )
 
-        // Supprimer le fichier temporaire local
-        supprimerPhoto(
-          req.file.filename
+        if (
+          !nom ||
+          !prenom ||
+          !fonctionNormalisee
+        ) {
+          if (req.file) {
+            supprimerPhoto(
+              req.file.filename
+            )
+          }
+
+          return res.status(400).json({
+            success: false,
+            message:
+              "Nom, prenom et fonction sont obligatoires.",
+          })
+        }
+
+        if (
+          !fonctionsAutorisees.includes(
+            fonctionNormalisee
+          )
+        ) {
+          if (req.file) {
+            supprimerPhoto(
+              req.file.filename
+            )
+          }
+
+          return res.status(400).json({
+            success: false,
+            message:
+              "Fonction non autorisée.",
+          })
+        }
+
+        const photo =
+          req.file
+            ? `/uploads/responsables/${req.file.filename}`
+            : null
+
+        const [
+          resultat,
+        ] = await db.query(
+          `
+          INSERT INTO utilisateurs
+          (
+            nom,
+            prenom,
+            fonction,
+            photo,
+            role,
+            statut
+          )
+          VALUES (?, ?, ?, ?, 'responsable', 1)
+          `,
+          [
+            nom,
+            prenom,
+            fonctionNormalisee,
+            photo,
+          ]
         )
-      }
 
-      // ========================================================
-      // MISE À JOUR MYSQL
-      // ========================================================
+        res.status(201).json({
+          success: true,
+          message:
+            "Responsable crée avec succès.",
+          id:
+            resultat.insertId,
+          photo,
+        })
+      } catch (error) {
+        if (req.file) {
+          supprimerPhoto(
+            req.file.filename
+          )
+        }
 
-      await db.query(
-        `
-        UPDATE utilisateurs
-        SET
-          nom = ?,
-          prenom = ?,
-          fonction = ?,
-          photo = ?
-        WHERE id = ?
-          AND role = 'responsable'
-        `,
-        [
-          nom ?? ancien.nom,
-          prenom ?? ancien.prenom,
-          fonctionNormalisee,
-          nouvellePhoto,
-          id,
-        ]
-      )
-
-      res.json({
-        success: true,
-        message:
-          "Responsable modifié avec succès.",
-        photo:
-          nouvellePhoto,
-      })
-    } catch (error) {
-      if (req.file) {
-        supprimerPhoto(
-          req.file.filename
+        console.error(
+          "❌ CREATION RESPONSABLE :",
+          error
         )
-      }
 
-      console.error(
-        "❌ MODIFICATION RESPONSABLE :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur modification responsable.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// SUPPRIMER RESPONSABLE
-// ============================================================
-
-app.delete(
-  "/api/responsables/:id",
-  verifierToken,
-  verifierAdministrateur,
-  async (req, res) => {
-    try {
-      const id =
-        req.params.id
-
-      const [
-        rows,
-      ] = await db.query(
-        `
-        SELECT photo
-        FROM utilisateurs
-        WHERE id = ?
-          AND role = 'responsable'
-        LIMIT 1
-        `,
-        [id]
-      )
-
-      if (
-        rows.length === 0
-      ) {
-        return res.status(404).json({
+        res.status(500).json({
           success: false,
           message:
-            "Responsable introuvable.",
+            "Erreur création responsable.",
         })
       }
+    }
+  )
 
-      await db.query(
-        `
-        DELETE FROM utilisateurs
-        WHERE id = ?
-          AND role = 'responsable'
-        `,
-        [id]
-      )
-// Supprimer uniquement les anciennes photos locales
-if (
-  rows[0].photo &&
-  !String(rows[0].photo).startsWith(
-    "http://"
-  ) &&
-  !String(rows[0].photo).startsWith(
-    "https://"
+  // ============================================================
+  // MODIFIER RESPONSABLE
+  // ============================================================
+
+  // ============================================================
+  // MODIFIER RESPONSABLE
+  // ============================================================
+
+  app.put(
+    "/api/responsables/:id",
+    verifierToken,
+    verifierAdministrateur,
+    uploadResponsable.single(
+      "photo"
+    ),
+    async (req, res) => {
+      try {
+        const id =
+          req.params.id
+
+        const [
+          anciens,
+        ] = await db.query(
+          `
+          SELECT
+            id,
+            assemblee_id,
+            nom,
+            prenom,
+            email,
+            telephone,
+            fonction,
+            photo,
+            statut,
+            role,
+            created_at,
+            updated_at,
+            NULL AS description
+          FROM utilisateurs
+          WHERE id = ?
+            AND role = 'responsable'
+          LIMIT 1
+          `,
+          [id]
+        )
+
+        if (
+          anciens.length === 0
+        ) {
+          if (req.file) {
+            supprimerPhoto(
+              req.file.filename
+            )
+          }
+
+          return res.status(404).json({
+            success: false,
+            message:
+              "Responsable introuvable.",
+          })
+        }
+
+        const ancien =
+          anciens[0]
+
+        const {
+          nom,
+          prenom,
+          fonction,
+          description,
+        } = req.body
+
+        const fonctionNormalisee =
+          fonction !== undefined
+            ? normaliserFonction(
+                fonction
+              )
+            : ancien.fonction
+
+        if (
+          fonctionNormalisee &&
+          !fonctionsAutorisees.includes(
+            fonctionNormalisee
+          )
+        ) {
+          if (req.file) {
+            supprimerPhoto(
+              req.file.filename
+            )
+          }
+
+          return res.status(400).json({
+            success: false,
+            message:
+              "Fonction non autorisée.",
+          })
+        }
+
+        // ========================================================
+        // PHOTO
+        // ========================================================
+
+        let nouvellePhoto =
+          ancien.photo
+
+        if (req.file) {
+          nouvellePhoto =
+            await envoyerPhotoResponsableCloudinary(
+              req.file.path
+            )
+
+          // Supprimer le fichier temporaire local
+          supprimerPhoto(
+            req.file.filename
+          )
+        }
+
+        // ========================================================
+        // MISE À JOUR MYSQL
+        // ========================================================
+
+        await db.query(
+          `
+          UPDATE utilisateurs
+          SET
+            nom = ?,
+            prenom = ?,
+            fonction = ?,
+            photo = ?
+          WHERE id = ?
+            AND role = 'responsable'
+          `,
+          [
+            nom ?? ancien.nom,
+            prenom ?? ancien.prenom,
+            fonctionNormalisee,
+            nouvellePhoto,
+            id,
+          ]
+        )
+
+        res.json({
+          success: true,
+          message:
+            "Responsable modifié avec succès.",
+          photo:
+            nouvellePhoto,
+        })
+      } catch (error) {
+        if (req.file) {
+          supprimerPhoto(
+            req.file.filename
+          )
+        }
+
+        console.error(
+          "❌ MODIFICATION RESPONSABLE :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur modification responsable.",
+        })
+      }
+    }
   )
-) {
-  supprimerPhoto(
-    rows[0].photo
+
+  // ============================================================
+  // SUPPRIMER RESPONSABLE
+  // ============================================================
+
+  app.delete(
+    "/api/responsables/:id",
+    verifierToken,
+    verifierAdministrateur,
+    async (req, res) => {
+      try {
+        const id =
+          req.params.id
+
+        const [
+          rows,
+        ] = await db.query(
+          `
+          SELECT photo
+          FROM utilisateurs
+          WHERE id = ?
+            AND role = 'responsable'
+          LIMIT 1
+          `,
+          [id]
+        )
+
+        if (
+          rows.length === 0
+        ) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "Responsable introuvable.",
+          })
+        }
+
+        await db.query(
+          `
+          DELETE FROM utilisateurs
+          WHERE id = ?
+            AND role = 'responsable'
+          `,
+          [id]
+        )
+  // Supprimer uniquement les anciennes photos locales
+  if (
+    rows[0].photo &&
+    !String(rows[0].photo).startsWith(
+      "http://"
+    ) &&
+    !String(rows[0].photo).startsWith(
+      "https://"
+    )
+  ) {
+    supprimerPhoto(
+      rows[0].photo
+    )
+  }
+
+        res.json({
+          success: true,
+          message:
+            "Responsable supprimÃ© avec succÃ¨s.",
+        })
+      } catch (error) {
+        console.error(
+          "âŒ SUPPRESSION RESPONSABLE :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur suppression responsable.",
+        })
+      }
+    }
   )
+  // ============================================================
+// UPLOAD LOGO ASSEMBLÉE VERS CLOUDINARY
+// ============================================================
+
+async function envoyerLogoAssembleeCloudinary(cheminFichier) {
+  if (!cheminFichier) return null
+
+  try {
+    const resultat = await cloudinary.uploader.upload(
+      cheminFichier,
+      {
+        folder: "bethel-glory-media/assemblees/logos",
+        resource_type: "image",
+      }
+    )
+
+    console.log(
+      "✅ Logo assemblée envoyé sur Cloudinary :",
+      resultat.secure_url
+    )
+
+    return resultat.secure_url
+  } catch (error) {
+    console.error(
+      "❌ Erreur upload logo assemblée Cloudinary :",
+      error.message
+    )
+
+    throw error
+  }
 }
 
-      res.json({
-        success: true,
-        message:
-          "Responsable supprimÃ© avec succÃ¨s.",
-      })
-    } catch (error) {
-      console.error(
-        "âŒ SUPPRESSION RESPONSABLE :",
-        error
-      )
+  // ============================================================
+  // ASSEMBLÃ‰ES
+  // ============================================================
 
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur suppression responsable.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// ASSEMBLÃ‰ES
-// ============================================================
-
-app.get(
+  app.get(
   "/api/assemblees",
   verifierToken,
   async (req, res) => {
     try {
-      const [
-        rows,
-      ] = await db.query(`
+      const [rows] = await db.query(`
         SELECT
           a.*,
           e.nom AS eglise_nom
@@ -2794,33 +2889,24 @@ app.get(
         ORDER BY a.nom ASC
       `)
 
-      const assemblees =
-        rows.map(
-          (assemblee) => {
-            return {
-              ...assemblee,
-              logo:
-                normaliserLogo(
-                  assemblee.logo
-                ),
-            }
-          }
-        )
+      const assemblees = rows.map((assemblee) => {
+        return {
+          ...assemblee,
+          logo: normaliserLogo(assemblee.logo),
+        }
+      })
 
       console.log(
-        "ðŸ›ï¸ AssemblÃ©es envoyÃ©es au frontend :"
+        "🏛️ Assemblées envoyées au frontend :"
       )
 
-      assemblees.forEach(
-        (assemblee) => {
-          console.log(
-            `   ${assemblee.id} - ${assemblee.nom} - logo: ${
-              assemblee.logo ||
-              "AUCUN"
-            }`
-          )
-        }
-      )
+      assemblees.forEach((assemblee) => {
+        console.log(
+          `   ${assemblee.id} - ${assemblee.nom} - logo: ${
+            assemblee.logo || "AUCUN"
+          }`
+        )
+      })
 
       res.json({
         success: true,
@@ -2828,748 +2914,744 @@ app.get(
       })
     } catch (error) {
       console.error(
-        "âŒ ASSEMBLEES :",
+        "❌ ASSEMBLÉES :",
         error
       )
 
       res.status(500).json({
         success: false,
         message:
-          "Erreur rÃ©cupÃ©ration assemblÃ©es.",
+          "Erreur récupération assemblées.",
       })
     }
   }
 )
+  // ============================================================
+  // DIMANCHES
+  // ============================================================
 
-// ============================================================
-// DIMANCHES
-// ============================================================
+  app.get(
+    "/api/dimanches",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const {
+          assemblee_id,
+        } = req.query
 
-app.get(
-  "/api/dimanches",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const {
-        assemblee_id,
-      } = req.query
-
-      let sql = `
-        SELECT
-          d.*,
-          a.nom AS assemblee_nom
-        FROM dimanches d
-        LEFT JOIN assemblees a
-          ON a.id = d.assemblee_id
-        WHERE d.actif = 1
-      `
-
-      const params = []
-
-      if (
-        assemblee_id
-      ) {
-        sql += `
-          AND d.assemblee_id = ?
+        let sql = `
+          SELECT
+            d.*,
+            a.nom AS assemblee_nom
+          FROM dimanches d
+          LEFT JOIN assemblees a
+            ON a.id = d.assemblee_id
+          WHERE d.actif = 1
         `
 
-        params.push(
+        const params = []
+
+        if (
           assemblee_id
-        )
-      }
+        ) {
+          sql += `
+            AND d.assemblee_id = ?
+          `
 
-      sql += `
-        ORDER BY
-          d.date_dimanche DESC,
-          d.id DESC
-      `
+          params.push(
+            assemblee_id
+          )
+        }
 
-      const [
-        rows,
-      ] = await db.query(
-        sql,
-        params
-      )
-
-      res.json({
-        success: true,
-        dimanches:
-          rows,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ DIMANCHES :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration dimanches.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// MODÃˆLES DE PUBLICATION
-// ============================================================
-
-app.get(
-  "/api/modeles-publication",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(`
-        SELECT *
-        FROM modeles_publication
-        WHERE actif = 1
-        ORDER BY id ASC
-      `)
-
-      res.json({
-        success: true,
-        modeles:
-          rows,
-        total:
-          rows.length,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ MODELES :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration modÃ¨les.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// MODÃˆLE PAR ID
-// ============================================================
-
-app.get(
-  "/api/modeles-publication/:id",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(
+        sql += `
+          ORDER BY
+            d.date_dimanche DESC,
+            d.id DESC
         `
-        SELECT *
-        FROM modeles_publication
-        WHERE id = ?
-        LIMIT 1
-        `,
-        [req.params.id]
-      )
 
-      if (
-        rows.length === 0
-      ) {
-        return res.status(404).json({
+        const [
+          rows,
+        ] = await db.query(
+          sql,
+          params
+        )
+
+        res.json({
+          success: true,
+          dimanches:
+            rows,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ DIMANCHES :",
+          error
+        )
+
+        res.status(500).json({
           success: false,
           message:
-            "ModÃ¨le introuvable.",
+            "Erreur rÃ©cupÃ©ration dimanches.",
         })
       }
-
-      res.json({
-        success: true,
-        modele:
-          rows[0],
-      })
-    } catch (error) {
-      console.error(
-        "âŒ MODELE ID :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration modÃ¨le.",
-      })
     }
-  }
-)
+  )
 
-// ============================================================
-// IMAGES
-// ============================================================
+  // ============================================================
+  // MODÃˆLES DE PUBLICATION
+  // ============================================================
 
-app.get(
-  "/api/images",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(`
-        SELECT *
-        FROM images
-        ORDER BY id DESC
-      `)
-
-      res.json({
-        success: true,
-        images:
+  app.get(
+    "/api/modeles-publication",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
           rows,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ IMAGES :",
-        error
-      )
+        ] = await db.query(`
+          SELECT *
+          FROM modeles_publication
+          WHERE actif = 1
+          ORDER BY id ASC
+        `)
 
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration images.",
-      })
-    }
-  }
-)
+        res.json({
+          success: true,
+          modeles:
+            rows,
+          total:
+            rows.length,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ MODELES :",
+          error
+        )
 
-// ============================================================
-// UPLOAD IMAGE
-// ============================================================
-
-app.post(
-  "/api/images/upload",
-  verifierToken,
-  uploadImage.single(
-    "image"
-  ),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
+        res.status(500).json({
           success: false,
           message:
-            "Aucune image reÃ§ue.",
+            "Erreur rÃ©cupÃ©ration modÃ¨les.",
         })
       }
+    }
+  )
 
-      const utilisateurId =
-        obtenirUtilisateurId(
-          req
+  // ============================================================
+  // MODÃˆLE PAR ID
+  // ============================================================
+
+  app.get(
+    "/api/modeles-publication/:id",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(
+          `
+          SELECT *
+          FROM modeles_publication
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [req.params.id]
         )
 
-      const fichier =
-        `/uploads/images/${req.file.filename}`
+        if (
+          rows.length === 0
+        ) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "ModÃ¨le introuvable.",
+          })
+        }
 
-      const [
-        resultat,
-      ] = await db.query(
-        `
-        INSERT INTO images
-        (
-          utilisateur_id,
-          nom_original,
-          fichier_original,
-          fichier_traite,
-          type_mime,
-          taille,
-          statut
+        res.json({
+          success: true,
+          modele:
+            rows[0],
+        })
+      } catch (error) {
+        console.error(
+          "âŒ MODELE ID :",
+          error
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          utilisateurId,
-          req.file.originalname,
-          fichier,
-          fichier,
-          req.file.mimetype,
-          req.file.size,
-          "traite",
-        ]
-      )
 
-      res.status(201).json({
-        success: true,
-        message:
-          "Image tÃ©lÃ©chargÃ©e avec succÃ¨s.",
-        id:
-          resultat.insertId,
-        fichier,
-      })
-    } catch (error) {
-      if (req.file) {
-        try {
-          fs.unlinkSync(
-            path.join(
-              imagesDir,
-              req.file.filename
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration modÃ¨le.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // IMAGES
+  // ============================================================
+
+  app.get(
+    "/api/images",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(`
+          SELECT *
+          FROM images
+          ORDER BY id DESC
+        `)
+
+        res.json({
+          success: true,
+          images:
+            rows,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ IMAGES :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration images.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // UPLOAD IMAGE
+  // ============================================================
+
+  app.post(
+    "/api/images/upload",
+    verifierToken,
+    uploadImage.single(
+      "image"
+    ),
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Aucune image reÃ§ue.",
+          })
+        }
+
+        const utilisateurId =
+          obtenirUtilisateurId(
+            req
+          )
+
+        const fichier =
+          `/uploads/images/${req.file.filename}`
+
+        const [
+          resultat,
+        ] = await db.query(
+          `
+          INSERT INTO images
+          (
+            utilisateur_id,
+            nom_original,
+            fichier_original,
+            fichier_traite,
+            type_mime,
+            taille,
+            statut
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          `,
+          [
+            utilisateurId,
+            req.file.originalname,
+            fichier,
+            fichier,
+            req.file.mimetype,
+            req.file.size,
+            "traite",
+          ]
+        )
+
+        res.status(201).json({
+          success: true,
+          message:
+            "Image tÃ©lÃ©chargÃ©e avec succÃ¨s.",
+          id:
+            resultat.insertId,
+          fichier,
+        })
+      } catch (error) {
+        if (req.file) {
+          try {
+            fs.unlinkSync(
+              path.join(
+                imagesDir,
+                req.file.filename
+              )
             )
-          )
-        } catch {}
-      }
+          } catch {}
+        }
 
-      console.error(
-        "âŒ UPLOAD IMAGE :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur lors du tÃ©lÃ©chargement de l'image.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// FILIGRANES
-// ============================================================
-
-app.get(
-  "/api/filigranes",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(`
-        SELECT *
-        FROM filigranes
-        WHERE actif = 1
-        ORDER BY id ASC
-      `)
-
-      res.json({
-        success: true,
-        filigranes:
-          rows,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ FILIGRANES :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration filigranes.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// PUBLICATIONS - STATISTIQUES
-// ============================================================
-
-app.get(
-  "/api/publications/statistiques",
-  verifierToken,
-  verifierAdministrateur,
-  async (req, res) => {
-    try {
-      const [
-        totalRows,
-      ] = await db.query(`
-        SELECT COUNT(*) AS total
-        FROM publications
-      `)
-
-      const [
-        statuts,
-      ] = await db.query(`
-        SELECT
-          statut,
-          COUNT(*) AS total
-        FROM publications
-        GROUP BY statut
-        ORDER BY statut ASC
-      `)
-
-      res.json({
-        success: true,
-        total:
-          Number(
-            totalRows[0]?.total ||
-              0
-          ),
-        statuts,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ STATISTIQUES PUBLICATIONS :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration statistiques.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// PUBLICATIONS - LISTE
-// ============================================================
-
-app.get(
-  "/api/publications",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const {
-        statut,
-        assemblee_id,
-        utilisateur_id,
-        modele_id,
-        dimanche_id,
-        recherche,
-      } = req.query
-
-      let sql = `
-        SELECT
-          p.*,
-
-          CONCAT(
-            COALESCE(u.prenom, ''),
-            ' ',
-            COALESCE(u.nom, '')
-          ) AS utilisateur_nom,
-
-          a.nom AS assemblee_nom,
-
-          d.date_dimanche,
-          d.titre AS dimanche_titre,
-
-          m.nom AS modele_nom,
-          m.format AS modele_format,
-
-          i.nom_original AS image_nom,
-
-          f.nom AS filigrane_nom
-
-        FROM publications p
-
-        LEFT JOIN utilisateurs u
-          ON u.id = p.utilisateur_id
-
-        LEFT JOIN assemblees a
-          ON a.id = p.assemblee_id
-
-        LEFT JOIN dimanches d
-          ON d.id = p.dimanche_id
-
-        LEFT JOIN modeles_publication m
-          ON m.id = p.modele_id
-
-        LEFT JOIN images i
-          ON i.id = p.image_id
-
-        LEFT JOIN filigranes f
-          ON f.id = p.filigrane_id
-
-        WHERE 1 = 1
-      `
-
-      const params = []
-
-      if (statut) {
-        sql += `
-          AND p.statut = ?
-        `
-
-        params.push(
-          statut
+        console.error(
+          "âŒ UPLOAD IMAGE :",
+          error
         )
-      }
 
-      if (assemblee_id) {
-        sql += `
-          AND p.assemblee_id = ?
-        `
-
-        params.push(
-          assemblee_id
-        )
-      }
-
-      if (utilisateur_id) {
-        sql += `
-          AND p.utilisateur_id = ?
-        `
-
-        params.push(
-          utilisateur_id
-        )
-      }
-
-      if (modele_id) {
-        sql += `
-          AND p.modele_id = ?
-        `
-
-        params.push(
-          modele_id
-        )
-      }
-
-      if (dimanche_id) {
-        sql += `
-          AND p.dimanche_id = ?
-        `
-
-        params.push(
-          dimanche_id
-        )
-      }
-
-      if (recherche) {
-        sql += `
-          AND (
-            p.titre LIKE ?
-            OR p.texte LIKE ?
-            OR p.verset LIKE ?
-            OR a.nom LIKE ?
-            OR m.nom LIKE ?
-          )
-        `
-
-        const terme =
-          `%${recherche}%`
-
-        params.push(
-          terme,
-          terme,
-          terme,
-          terme,
-          terme
-        )
-      }
-
-      sql += `
-        ORDER BY
-          p.created_at DESC,
-          p.id DESC
-      `
-
-      const [
-        rows,
-      ] = await db.query(
-        sql,
-        params
-      )
-
-      res.json({
-        success: true,
-        publications:
-          rows,
-        total:
-          rows.length,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ LISTE PUBLICATIONS :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration publications.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// PUBLICATION PAR ID
-// ============================================================
-
-app.get(
-  "/api/publications/:id",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(
-        `
-        SELECT
-          p.*,
-
-          CONCAT(
-            COALESCE(u.prenom, ''),
-            ' ',
-            COALESCE(u.nom, '')
-          ) AS utilisateur_nom,
-
-          u.email AS utilisateur_email,
-
-          a.nom AS assemblee_nom,
-          a.ville AS assemblee_ville,
-          a.quartier AS assemblee_quartier,
-          a.adresse AS assemblee_adresse,
-          a.telephone AS assemblee_telephone,
-          a.logo AS assemblee_logo,
-
-          d.date_dimanche,
-          d.titre AS dimanche_titre,
-          d.description AS dimanche_description,
-
-          m.nom AS modele_nom,
-          m.description AS modele_description,
-          m.format AS modele_format,
-          m.largeur AS modele_largeur,
-          m.hauteur AS modele_hauteur,
-
-          i.nom_original AS image_nom,
-          i.fichier_original AS image_fichier,
-          i.fichier_traite AS image_fichier_traite,
-
-          f.nom AS filigrane_nom,
-          f.texte AS filigrane_texte
-
-        FROM publications p
-
-        LEFT JOIN utilisateurs u
-          ON u.id = p.utilisateur_id
-
-        LEFT JOIN assemblees a
-          ON a.id = p.assemblee_id
-
-        LEFT JOIN dimanches d
-          ON d.id = p.dimanche_id
-
-        LEFT JOIN modeles_publication m
-          ON m.id = p.modele_id
-
-        LEFT JOIN images i
-          ON i.id = p.image_id
-
-        LEFT JOIN filigranes f
-          ON f.id = p.filigrane_id
-
-        WHERE p.id = ?
-
-        LIMIT 1
-        `,
-        [req.params.id]
-      )
-
-      if (
-        rows.length === 0
-      ) {
-        return res.status(404).json({
+        res.status(500).json({
           success: false,
           message:
-            "Publication introuvable.",
+            "Erreur lors du tÃ©lÃ©chargement de l'image.",
         })
       }
+    }
+  )
 
-      if (rows[0]) {
-        rows[0].assemblee_logo =
-          normaliserLogo(
-            rows[0].assemblee_logo
+  // ============================================================
+  // FILIGRANES
+  // ============================================================
+
+  app.get(
+    "/api/filigranes",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(`
+          SELECT *
+          FROM filigranes
+          WHERE actif = 1
+          ORDER BY id ASC
+        `)
+
+        res.json({
+          success: true,
+          filigranes:
+            rows,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ FILIGRANES :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration filigranes.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // PUBLICATIONS - STATISTIQUES
+  // ============================================================
+
+  app.get(
+    "/api/publications/statistiques",
+    verifierToken,
+    verifierAdministrateur,
+    async (req, res) => {
+      try {
+        const [
+          totalRows,
+        ] = await db.query(`
+          SELECT COUNT(*) AS total
+          FROM publications
+        `)
+
+        const [
+          statuts,
+        ] = await db.query(`
+          SELECT
+            statut,
+            COUNT(*) AS total
+          FROM publications
+          GROUP BY statut
+          ORDER BY statut ASC
+        `)
+
+        res.json({
+          success: true,
+          total:
+            Number(
+              totalRows[0]?.total ||
+                0
+            ),
+          statuts,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ STATISTIQUES PUBLICATIONS :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration statistiques.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // PUBLICATIONS - LISTE
+  // ============================================================
+
+  app.get(
+    "/api/publications",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const {
+          statut,
+          assemblee_id,
+          utilisateur_id,
+          modele_id,
+          dimanche_id,
+          recherche,
+        } = req.query
+
+        let sql = `
+          SELECT
+            p.*,
+
+            CONCAT(
+              COALESCE(u.prenom, ''),
+              ' ',
+              COALESCE(u.nom, '')
+            ) AS utilisateur_nom,
+
+            a.nom AS assemblee_nom,
+
+            d.date_dimanche,
+            d.titre AS dimanche_titre,
+
+            m.nom AS modele_nom,
+            m.format AS modele_format,
+
+            i.nom_original AS image_nom,
+
+            f.nom AS filigrane_nom
+
+          FROM publications p
+
+          LEFT JOIN utilisateurs u
+            ON u.id = p.utilisateur_id
+
+          LEFT JOIN assemblees a
+            ON a.id = p.assemblee_id
+
+          LEFT JOIN dimanches d
+            ON d.id = p.dimanche_id
+
+          LEFT JOIN modeles_publication m
+            ON m.id = p.modele_id
+
+          LEFT JOIN images i
+            ON i.id = p.image_id
+
+          LEFT JOIN filigranes f
+            ON f.id = p.filigrane_id
+
+          WHERE 1 = 1
+        `
+
+        const params = []
+
+        if (statut) {
+          sql += `
+            AND p.statut = ?
+          `
+
+          params.push(
+            statut
           )
+        }
+
+        if (assemblee_id) {
+          sql += `
+            AND p.assemblee_id = ?
+          `
+
+          params.push(
+            assemblee_id
+          )
+        }
+
+        if (utilisateur_id) {
+          sql += `
+            AND p.utilisateur_id = ?
+          `
+
+          params.push(
+            utilisateur_id
+          )
+        }
+
+        if (modele_id) {
+          sql += `
+            AND p.modele_id = ?
+          `
+
+          params.push(
+            modele_id
+          )
+        }
+
+        if (dimanche_id) {
+          sql += `
+            AND p.dimanche_id = ?
+          `
+
+          params.push(
+            dimanche_id
+          )
+        }
+
+        if (recherche) {
+          sql += `
+            AND (
+              p.titre LIKE ?
+              OR p.texte LIKE ?
+              OR p.verset LIKE ?
+              OR a.nom LIKE ?
+              OR m.nom LIKE ?
+            )
+          `
+
+          const terme =
+            `%${recherche}%`
+
+          params.push(
+            terme,
+            terme,
+            terme,
+            terme,
+            terme
+          )
+        }
+
+        sql += `
+          ORDER BY
+            p.created_at DESC,
+            p.id DESC
+        `
+
+        const [
+          rows,
+        ] = await db.query(
+          sql,
+          params
+        )
+
+        res.json({
+          success: true,
+          publications:
+            rows,
+          total:
+            rows.length,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ LISTE PUBLICATIONS :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration publications.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // PUBLICATION PAR ID
+  // ============================================================
+
+  app.get(
+    "/api/publications/:id",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(
+          `
+          SELECT
+            p.*,
+
+            CONCAT(
+              COALESCE(u.prenom, ''),
+              ' ',
+              COALESCE(u.nom, '')
+            ) AS utilisateur_nom,
+
+            u.email AS utilisateur_email,
+
+            a.nom AS assemblee_nom,
+            a.ville AS assemblee_ville,
+            a.quartier AS assemblee_quartier,
+            a.adresse AS assemblee_adresse,
+            a.telephone AS assemblee_telephone,
+            a.logo AS assemblee_logo,
+
+            d.date_dimanche,
+            d.titre AS dimanche_titre,
+            d.description AS dimanche_description,
+
+            m.nom AS modele_nom,
+            m.description AS modele_description,
+            m.format AS modele_format,
+            m.largeur AS modele_largeur,
+            m.hauteur AS modele_hauteur,
+
+            i.nom_original AS image_nom,
+            i.fichier_original AS image_fichier,
+            i.fichier_traite AS image_fichier_traite,
+
+            f.nom AS filigrane_nom,
+            f.texte AS filigrane_texte
+
+          FROM publications p
+
+          LEFT JOIN utilisateurs u
+            ON u.id = p.utilisateur_id
+
+          LEFT JOIN assemblees a
+            ON a.id = p.assemblee_id
+
+          LEFT JOIN dimanches d
+            ON d.id = p.dimanche_id
+
+          LEFT JOIN modeles_publication m
+            ON m.id = p.modele_id
+
+          LEFT JOIN images i
+            ON i.id = p.image_id
+
+          LEFT JOIN filigranes f
+            ON f.id = p.filigrane_id
+
+          WHERE p.id = ?
+
+          LIMIT 1
+          `,
+          [req.params.id]
+        )
+
+        if (
+          rows.length === 0
+        ) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "Publication introuvable.",
+          })
+        }
+
+        if (rows[0]) {
+          rows[0].assemblee_logo =
+            normaliserLogo(
+              rows[0].assemblee_logo
+            )
+        }
+
+        res.json({
+          success: true,
+          publication:
+            rows[0],
+        })
+      } catch (error) {
+        console.error(
+          "âŒ PUBLICATION ID :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration publication.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // VÃ‰RIFICATION STATUT PUBLICATION
+  // ============================================================
+
+  async function obtenirStatutsPublication() {
+    try {
+      const [
+        colonnes,
+      ] = await db.query(`
+        SHOW COLUMNS
+        FROM publications
+        LIKE 'statut'
+      `)
+
+      if (
+        colonnes.length === 0
+      ) {
+        return []
       }
 
-      res.json({
-        success: true,
-        publication:
-          rows[0],
-      })
+      const type =
+        colonnes[0].Type || ""
+
+      const correspondance =
+        type.match(
+          /^enum\((.*)\)$/i
+        )
+
+      if (
+        !correspondance
+      ) {
+        return []
+      }
+
+      return correspondance[1]
+        .split(",")
+        .map(
+          (valeur) =>
+            valeur
+              .trim()
+              .replace(/^'/, "")
+              .replace(/'$/, "")
+              .replace(/''/g, "'")
+        )
     } catch (error) {
       console.error(
-        "âŒ PUBLICATION ID :",
-        error
+        "âŒ VÃ©rification statut publication :",
+        error.message
       )
 
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration publication.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// VÃ‰RIFICATION STATUT PUBLICATION
-// ============================================================
-
-async function obtenirStatutsPublication() {
-  try {
-    const [
-      colonnes,
-    ] = await db.query(`
-      SHOW COLUMNS
-      FROM publications
-      LIKE 'statut'
-    `)
-
-    if (
-      colonnes.length === 0
-    ) {
       return []
     }
-
-    const type =
-      colonnes[0].Type || ""
-
-    const correspondance =
-      type.match(
-        /^enum\((.*)\)$/i
-      )
-
-    if (
-      !correspondance
-    ) {
-      return []
-    }
-
-    return correspondance[1]
-      .split(",")
-      .map(
-        (valeur) =>
-          valeur
-            .trim()
-            .replace(/^'/, "")
-            .replace(/'$/, "")
-            .replace(/''/g, "'")
-      )
-  } catch (error) {
-    console.error(
-      "âŒ VÃ©rification statut publication :",
-      error.message
-    )
-
-    return []
   }
-}
 
-// ============================================================
-// CRÃ‰ER PUBLICATION
-// ============================================================
+  // ============================================================
+  // CRÃ‰ER PUBLICATION
+  // ============================================================
 
-app.post(
+ app.post(
   "/api/publications",
   verifierToken,
-  uploadPublication.single(
-    "fichier"
-  ),
+  uploadPublication.single("fichier"),
   async (req, res) => {
-    let fichierPhysique =
-      null
+    let fichierPhysique = null
 
     try {
       const {
@@ -3587,11 +3669,13 @@ app.post(
         message_erreur,
       } = req.body
 
+      // ============================================================
+      // UTILISATEUR
+      // ============================================================
+
       const utilisateurId =
         utilisateur_id ||
-        obtenirUtilisateurId(
-          req
-        )
+        obtenirUtilisateurId(req)
 
       if (
         utilisateurId === null ||
@@ -3607,9 +3691,13 @@ app.post(
         return res.status(401).json({
           success: false,
           message:
-            "Utilisateur connectÃ© introuvable.",
+            "Utilisateur connecté introuvable.",
         })
       }
+
+      // ============================================================
+      // ASSEMBLÉE
+      // ============================================================
 
       if (!assemblee_id) {
         if (req.file) {
@@ -3621,7 +3709,7 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "L'assemblÃ©e est obligatoire.",
+            "L'assemblée est obligatoire.",
         })
       }
 
@@ -3650,9 +3738,13 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "AssemblÃ©e introuvable ou inactive.",
+            "Assemblée introuvable ou inactive.",
         })
       }
+
+      // ============================================================
+      // DIMANCHE
+      // ============================================================
 
       if (!dimanche_id) {
         if (req.file) {
@@ -3697,9 +3789,13 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "Le dimanche ne correspond pas Ã  cette assemblÃ©e ou est inactif.",
+            "Le dimanche ne correspond pas à cette assemblée ou est inactif.",
         })
       }
+
+      // ============================================================
+      // MODÈLE
+      // ============================================================
 
       if (!modele_id) {
         if (req.file) {
@@ -3711,7 +3807,7 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "Le modÃ¨le est obligatoire.",
+            "Le modèle est obligatoire.",
         })
       }
 
@@ -3740,9 +3836,13 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            "ModÃ¨le introuvable ou inactif.",
+            "Modèle introuvable ou inactif.",
         })
       }
+
+      // ============================================================
+      // IMAGE SOURCE
+      // ============================================================
 
       let imageId =
         convertirNullable(
@@ -3779,6 +3879,10 @@ app.post(
         }
       }
 
+      // ============================================================
+      // FILIGRANE
+      // ============================================================
+
       let filigraneId =
         convertirNullable(
           filigrane_id
@@ -3792,7 +3896,7 @@ app.post(
           SELECT id
           FROM filigranes
           WHERE id = ?
-          AND actif = 1
+            AND actif = 1
           LIMIT 1
           `,
           [filigraneId]
@@ -3815,6 +3919,10 @@ app.post(
         }
       }
 
+      // ============================================================
+      // FICHIER DE PUBLICATION
+      // ============================================================
+
       let fichierFinal =
         convertirNullable(
           fichier_final
@@ -3824,14 +3932,89 @@ app.post(
         fichierPhysique =
           req.file.filename
 
-        fichierFinal =
-          `/uploads/publications/${req.file.filename}`
+        console.log(
+          "🖼️ Publication reçue :",
+          req.file.filename
+        )
 
         console.log(
-          "ðŸ–¼ï¸ Publication reÃ§ue :",
+          "☁️ Envoi de la publication vers Cloudinary..."
+        )
+
+        // ----------------------------------------------------------
+        // CLOUDINARY
+        // ----------------------------------------------------------
+
+        const resultatCloudinary =
+          await cloudinary.uploader.upload(
+            req.file.path,
+            {
+              folder:
+                "bethel-glory-media/publications",
+
+              resource_type:
+                "image",
+
+              use_filename:
+                true,
+
+              unique_filename:
+                true,
+
+              overwrite:
+                false,
+            }
+          )
+
+        fichierFinal =
+          resultatCloudinary.secure_url
+
+        console.log(
+          "✅ Publication envoyée sur Cloudinary :"
+        )
+
+        console.log(
           fichierFinal
         )
+
+        // ----------------------------------------------------------
+        // SUPPRESSION DU FICHIER LOCAL TEMPORAIRE
+        // ----------------------------------------------------------
+
+        try {
+          if (
+            req.file.path &&
+            fs.existsSync(
+              req.file.path
+            )
+          ) {
+            fs.unlinkSync(
+              req.file.path
+            )
+
+            console.log(
+              "🗑️ Fichier temporaire supprimé :",
+              req.file.filename
+            )
+          }
+        } catch (
+          suppressionError
+        ) {
+          console.warn(
+            "⚠️ Impossible de supprimer le fichier temporaire :",
+            suppressionError.message
+          )
+        }
+
+        // Le fichier n'a plus besoin d'être supprimé
+        // par le bloc catch principal.
+        fichierPhysique =
+          null
       }
+
+      // ============================================================
+      // STATUT
+      // ============================================================
 
       let statutFinal =
         statut ||
@@ -3841,8 +4024,7 @@ app.post(
         await obtenirStatutsPublication()
 
       if (
-        statutsAutorises.length >
-          0 &&
+        statutsAutorises.length > 0 &&
         !statutsAutorises.includes(
           statutFinal
         )
@@ -3856,11 +4038,15 @@ app.post(
         return res.status(400).json({
           success: false,
           message:
-            `Statut "${statutFinal}" non autorisÃ©.`,
+            `Statut "${statutFinal}" non autorisé.`,
           statuts_autorises:
             statutsAutorises,
         })
       }
+
+      // ============================================================
+      // ENREGISTREMENT MYSQL
+      // ============================================================
 
       const [
         resultat,
@@ -3890,58 +4076,85 @@ app.post(
           modele_id,
           imageId,
           filigraneId,
+
           convertirNullable(
             titre
           ),
+
           convertirNullable(
             texte
           ),
+
           convertirNullable(
             verset
           ),
+
           fichierFinal,
+
           statutFinal,
+
           convertirNullable(
             message_erreur
           ),
         ]
       )
 
-      res.status(201).json({
+      // ============================================================
+      // RÉPONSE
+      // ============================================================
+
+      return res.status(201).json({
         success: true,
+
         message:
-          "Publication enregistrÃ©e avec succÃ¨s.",
+          "Publication enregistrée avec succès.",
+
         publication: {
           id:
             resultat.insertId,
+
           utilisateur_id:
             utilisateurId,
+
           assemblee_id,
+
           dimanche_id,
+
           modele_id,
+
           image_id:
             imageId,
+
           filigrane_id:
             filigraneId,
+
           titre:
             convertirNullable(
               titre
             ),
+
           texte:
             convertirNullable(
               texte
             ),
+
           verset:
             convertirNullable(
               verset
             ),
+
           fichier_final:
             fichierFinal,
+
           statut:
             statutFinal,
         },
       })
     } catch (error) {
+      // ============================================================
+      // NETTOYAGE EN CAS D'ERREUR
+      // ============================================================
+
       if (
         fichierPhysique
       ) {
@@ -3951,14 +4164,16 @@ app.post(
       }
 
       console.error(
-        "âŒ CREATION PUBLICATION :",
+        "❌ CREATION PUBLICATION :",
         error
       )
 
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
+
         message:
           "Erreur lors de l'enregistrement de la publication.",
+
         error:
           error.message,
       })
@@ -3966,701 +4181,964 @@ app.post(
   }
 )
 
-// ============================================================
-// MODIFIER PUBLICATION
-// ============================================================
+  // ============================================================
+  // MODIFIER PUBLICATION
+  // ============================================================
 
-app.put(
-  "/api/publications/:id",
-  verifierToken,
-  async (req, res) => {
+  app.put(
+    "/api/publications/:id",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const id =
+          req.params.id
+
+        const {
+          assemblee_id,
+          dimanche_id,
+          modele_id,
+          image_id,
+          filigrane_id,
+          titre,
+          texte,
+          verset,
+          fichier_final,
+          statut,
+          message_erreur,
+        } = req.body
+
+        const [
+          anciennes,
+        ] = await db.query(
+          `
+          SELECT *
+          FROM publications
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [id]
+        )
+
+        if (
+          anciennes.length === 0
+        ) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "Publication introuvable.",
+          })
+        }
+
+        const ancienne =
+          anciennes[0]
+
+        const assembleeFinale =
+          assemblee_id ??
+          ancienne.assemblee_id
+
+        const dimancheFinal =
+          dimanche_id ??
+          ancienne.dimanche_id
+
+        const modeleFinal =
+          modele_id ??
+          ancienne.modele_id
+
+        const [
+          dimanches,
+        ] = await db.query(
+          `
+          SELECT id
+          FROM dimanches
+          WHERE id = ?
+            AND assemblee_id = ?
+            AND actif = 1
+          LIMIT 1
+          `,
+          [
+            dimancheFinal,
+            assembleeFinale,
+          ]
+        )
+
+        if (
+          dimanches.length === 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Le dimanche ne correspond pas Ã  l'assemblÃ©e.",
+          })
+        }
+
+        const [
+          modeles,
+        ] = await db.query(
+          `
+          SELECT id
+          FROM modeles_publication
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [modeleFinal]
+        )
+
+        if (
+          modeles.length === 0
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "ModÃ¨le introuvable.",
+          })
+        }
+
+        const imageFinale =
+          convertirNullable(
+            image_id ??
+              ancienne.image_id
+          )
+
+        const filigraneFinal =
+          convertirNullable(
+            filigrane_id ??
+              ancienne.filigrane_id
+          )
+
+        const fichierFinal =
+          fichier_final ??
+          ancienne.fichier_final
+
+        const statutFinal =
+          statut ??
+          ancienne.statut
+
+        await db.query(
+          `
+          UPDATE publications
+          SET
+            assemblee_id = ?,
+            dimanche_id = ?,
+            modele_id = ?,
+            image_id = ?,
+            filigrane_id = ?,
+            titre = ?,
+            texte = ?,
+            verset = ?,
+            fichier_final = ?,
+            statut = ?,
+            message_erreur = ?
+          WHERE id = ?
+          `,
+          [
+            assembleeFinale,
+            dimancheFinal,
+            modeleFinal,
+            imageFinale,
+            filigraneFinal,
+            convertirNullable(
+              titre
+            ),
+            convertirNullable(
+              texte
+            ),
+            convertirNullable(
+              verset
+            ),
+            convertirNullable(
+              fichierFinal
+            ),
+            statutFinal,
+            convertirNullable(
+              message_erreur
+            ),
+            id,
+          ]
+        )
+
+        res.json({
+          success: true,
+          message:
+            "Publication modifiÃ©e avec succÃ¨s.",
+        })
+      } catch (error) {
+        console.error(
+          "âŒ MODIFICATION PUBLICATION :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur modification publication.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // SUPPRIMER PUBLICATION
+  // ============================================================
+
+  app.delete(
+    "/api/publications/:id",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const id =
+          req.params.id
+
+        const [
+          rows,
+        ] = await db.query(
+          `
+          SELECT
+            fichier_final
+          FROM publications
+          WHERE id = ?
+          LIMIT 1
+          `,
+          [id]
+        )
+
+        if (
+          rows.length === 0
+        ) {
+          return res.status(404).json({
+            success: false,
+            message:
+              "Publication introuvable.",
+          })
+        }
+
+        const fichierFinal =
+          rows[0].fichier_final
+
+        await db.query(
+          `
+          DELETE FROM publications
+          WHERE id = ?
+          `,
+          [id]
+        )
+
+        supprimerFichierPublication(
+          fichierFinal
+        )
+
+        res.json({
+          success: true,
+          message:
+            "Publication supprimÃ©e avec succÃ¨s.",
+        })
+      } catch (error) {
+        console.error(
+          "âŒ SUPPRESSION PUBLICATION :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur suppression publication.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // CONTACT
+  // ============================================================
+
+  app.post(
+    "/api/contact",
+    async (req, res) => {
+      try {
+        const {
+          nom,
+          email,
+          sujet,
+          message,
+        } = req.body
+
+        if (
+          !nom ||
+          !email ||
+          !message
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Nom, email et message sont obligatoires.",
+          })
+        }
+
+        const [
+          resultat,
+        ] = await db.query(
+          `
+          INSERT INTO messages_contact
+          (
+            nom,
+            email,
+            sujet,
+            message
+          )
+          VALUES (?, ?, ?, ?)
+          `,
+          [
+            nom,
+            email,
+            convertirNullable(
+              sujet
+            ),
+            message,
+          ]
+        )
+
+        if (
+          resend &&
+          process.env.CONTACT_EMAIL
+        ) {
+          try {
+            await resend.emails.send(
+              {
+                from:
+                  "BETHEL GLORY MEDIA <onboarding@resend.dev>",
+
+                to: [
+                  process.env
+                    .CONTACT_EMAIL,
+                ],
+
+                subject:
+                  sujet ||
+                  "Nouveau message de contact",
+
+                html: `
+                  <div style="font-family:Arial,sans-serif;">
+                    <h2>Nouveau message de contact</h2>
+
+                    <p>
+                      <strong>Nom :</strong>
+                      ${nom}
+                    </p>
+
+                    <p>
+                      <strong>Email :</strong>
+                      ${email}
+                    </p>
+
+                    <p>
+                      <strong>Sujet :</strong>
+                      ${sujet || ""}
+                    </p>
+
+                    <hr />
+
+                    <p>
+                      ${String(
+                        message
+                      ).replace(
+                        /\n/g,
+                        "<br>"
+                      )}
+                    </p>
+                  </div>
+                `,
+              }
+            )
+          } catch (emailError) {
+            console.error(
+              "âš ï¸ Erreur Resend :",
+              emailError.message
+            )
+          }
+        }
+
+        res.status(201).json({
+          success: true,
+          message:
+            "Votre message a Ã©tÃ© envoyÃ© avec succÃ¨s.",
+          id:
+            resultat.insertId,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ CONTACT :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur lors de l'envoi du message.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // MESSAGES CONTACT ADMIN
+  // ============================================================
+
+  app.get(
+    "/api/messages-contact",
+    verifierToken,
+    verifierAdministrateur,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(`
+          SELECT *
+          FROM messages_contact
+          ORDER BY created_at DESC
+        `)
+
+        res.json({
+          success: true,
+          messages:
+            rows,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ MESSAGES CONTACT :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration messages.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // NOTIFICATIONS NON LUES
+  // ============================================================
+
+  app.get(
+    "/api/notifications/non-lues",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(`
+          SELECT *
+          FROM notifications
+          WHERE lu = 0
+          ORDER BY created_at DESC
+        `)
+
+        res.json({
+          success: true,
+          notifications:
+            rows,
+          total:
+            rows.length,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ NOTIFICATIONS NON LUES :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration notifications.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // NOTIFICATIONS
+  // ============================================================
+
+  app.get(
+    "/api/notifications",
+    verifierToken,
+    async (req, res) => {
+      try {
+        const [
+          rows,
+        ] = await db.query(`
+          SELECT *
+          FROM notifications
+          ORDER BY created_at DESC
+        `)
+
+        res.json({
+          success: true,
+          notifications:
+            rows,
+        })
+      } catch (error) {
+        console.error(
+          "âŒ NOTIFICATIONS :",
+          error
+        )
+
+        res.status(500).json({
+          success: false,
+          message:
+            "Erreur rÃ©cupÃ©ration notifications.",
+        })
+      }
+    }
+  )
+
+  // ============================================================
+  // ERREUR MULTER
+  // ============================================================
+
+  app.use(
+    (
+      error,
+      req,
+      res,
+      next
+    ) => {
+      if (
+        error instanceof
+        multer.MulterError
+      ) {
+        console.error(
+          "âŒ ERREUR MULTER :",
+          error
+        )
+
+        if (
+          error.code ===
+          "LIMIT_FILE_SIZE"
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Le fichier est trop volumineux. Taille maximale : 100 Mo.",
+          })
+        }
+
+        return res.status(400).json({
+          success: false,
+          message:
+            error.message,
+        })
+      }
+
+      if (
+        error &&
+        error.message &&
+        error.message.includes(
+          "Format d'image"
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            error.message,
+        })
+      }
+
+      next(error)
+    }
+  )
+
+  // ============================================================
+  // ROUTE 404
+  // ============================================================
+
+  app.use(
+    (req, res) => {
+      res.status(404).json({
+        success: false,
+        message:
+          "Route API introuvable.",
+        route:
+          req.originalUrl,
+      })
+    }
+  )
+
+  // ============================================================
+  // GESTIONNAIRE D'ERREUR GLOBAL
+  // ============================================================
+
+  app.use(
+    (
+      error,
+      req,
+      res,
+      next
+    ) => {
+      console.error(
+        "âŒ ERREUR SERVEUR :",
+        error
+      )
+
+      if (
+        res.headersSent
+      ) {
+        return next(error)
+      }
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Une erreur interne du serveur est survenue.",
+        error:
+          process.env.NODE_ENV ===
+          "development"
+            ? error.message
+            : undefined,
+      })
+    }
+  )
+
+  // ============================================================
+  // DÃ‰MARRAGE
+  // ============================================================
+
+  async function demarrerServeur() {
     try {
-      const id =
-        req.params.id
+      await verifierStructureUtilisateurs()
 
+      await initialiserTableMessages()
+
+      await initialiserTableThemeAnnee()
+
+      // ========================================================
+      // SYNCHRONISATION DES 42 MODÃˆLES
+      // ========================================================
+
+      await initialiserModelesPublication()
+
+      await db.query(
+        "SELECT 1"
+      )
+
+      console.log(
+        "âœ… Connexion MySQL rÃ©ussie."
+      )
+      app.post(
+  "/api/assemblees",
+  verifierToken,
+  verifierAdministrateur,
+uploadLogo.single("logo"),  async (req, res) => {
+    try {
       const {
-        assemblee_id,
-        dimanche_id,
-        modele_id,
-        image_id,
-        filigrane_id,
-        titre,
-        texte,
-        verset,
-        fichier_final,
-        statut,
-        message_erreur,
+        eglise_id,
+        nom,
+        ville,
+        quartier,
+        adresse,
+        telephone,
+        actif,
       } = req.body
 
-      const [
-        anciennes,
-      ] = await db.query(
+      // Vérification de l'église
+      if (!eglise_id) {
+        return res.status(400).json({
+          success: false,
+          message: "L'église est obligatoire.",
+        })
+      }
+
+      // Vérification du nom
+      if (!nom || !nom.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Le nom de l'assemblée est obligatoire.",
+        })
+      }
+
+      let logo = null
+
+      // Upload du logo sur Cloudinary
+      if (req.file) {
+        logo = await envoyerLogoAssembleeCloudinary(
+          req.file.path
+        )
+
+        // Suppression du fichier temporaire
+        supprimerPhoto(req.file.filename)
+      }
+
+      // Insertion en base
+      const [resultat] = await db.query(
+        `
+        INSERT INTO assemblees (
+          eglise_id,
+          nom,
+          ville,
+          quartier,
+          adresse,
+          telephone,
+          logo,
+          actif
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          Number(eglise_id),
+          nom.trim(),
+          ville || null,
+          quartier || null,
+          adresse || null,
+          telephone || null,
+          logo,
+          actif === undefined ? 1 : Number(actif),
+        ]
+      )
+
+      res.status(201).json({
+        success: true,
+        message: "Assemblée créée avec succès.",
+        assemblee: {
+          id: resultat.insertId,
+          eglise_id: Number(eglise_id),
+          nom: nom.trim(),
+          ville: ville || null,
+          quartier: quartier || null,
+          adresse: adresse || null,
+          telephone: telephone || null,
+          logo,
+          actif: actif === undefined ? 1 : Number(actif),
+        },
+      })
+    } catch (error) {
+      console.error(
+        "❌ Erreur création assemblée :",
+        error
+      )
+
+      res.status(500).json({
+        success: false,
+        message: "Erreur lors de la création de l'assemblée.",
+        error: error.message,
+      })
+    }
+  }
+  
+)
+app.put(
+  "/api/assemblees/:id",
+  verifierToken,
+  verifierAdministrateur,
+uploadLogo.single("logo"), 
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id)
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: "ID de l'assemblée invalide.",
+        })
+      }
+
+      // Vérifier que l'assemblée existe
+      const [assemblees] = await db.query(
         `
         SELECT *
-        FROM publications
+        FROM assemblees
         WHERE id = ?
         LIMIT 1
         `,
         [id]
       )
 
-      if (
-        anciennes.length === 0
-      ) {
+      if (!assemblees.length) {
         return res.status(404).json({
           success: false,
-          message:
-            "Publication introuvable.",
+          message: "Assemblée introuvable.",
         })
       }
 
-      const ancienne =
-        anciennes[0]
+      let logo = assemblees[0].logo
 
-      const assembleeFinale =
-        assemblee_id ??
-        ancienne.assemblee_id
-
-      const dimancheFinal =
-        dimanche_id ??
-        ancienne.dimanche_id
-
-      const modeleFinal =
-        modele_id ??
-        ancienne.modele_id
-
-      const [
-        dimanches,
-      ] = await db.query(
-        `
-        SELECT id
-        FROM dimanches
-        WHERE id = ?
-          AND assemblee_id = ?
-          AND actif = 1
-        LIMIT 1
-        `,
-        [
-          dimancheFinal,
-          assembleeFinale,
-        ]
-      )
-
-      if (
-        dimanches.length === 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Le dimanche ne correspond pas Ã  l'assemblÃ©e.",
-        })
-      }
-
-      const [
-        modeles,
-      ] = await db.query(
-        `
-        SELECT id
-        FROM modeles_publication
-        WHERE id = ?
-        LIMIT 1
-        `,
-        [modeleFinal]
-      )
-
-      if (
-        modeles.length === 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "ModÃ¨le introuvable.",
-        })
-      }
-
-      const imageFinale =
-        convertirNullable(
-          image_id ??
-            ancienne.image_id
+      // Si un nouveau logo est envoyé
+      if (req.file) {
+        logo = await envoyerLogoAssembleeCloudinary(
+          req.file.path
         )
 
-      const filigraneFinal =
-        convertirNullable(
-          filigrane_id ??
-            ancienne.filigrane_id
-        )
+        // Supprimer le fichier temporaire local
+        supprimerPhoto(req.file.filename)
+      }
 
-      const fichierFinal =
-        fichier_final ??
-        ancienne.fichier_final
-
-      const statutFinal =
-        statut ??
-        ancienne.statut
+      const {
+        eglise_id,
+        nom,
+        ville,
+        quartier,
+        adresse,
+        telephone,
+        actif,
+      } = req.body
 
       await db.query(
         `
-        UPDATE publications
+        UPDATE assemblees
         SET
-          assemblee_id = ?,
-          dimanche_id = ?,
-          modele_id = ?,
-          image_id = ?,
-          filigrane_id = ?,
-          titre = ?,
-          texte = ?,
-          verset = ?,
-          fichier_final = ?,
-          statut = ?,
-          message_erreur = ?
+          eglise_id = ?,
+          nom = ?,
+          ville = ?,
+          quartier = ?,
+          adresse = ?,
+          telephone = ?,
+          logo = ?,
+          actif = ?
         WHERE id = ?
         `,
         [
-          assembleeFinale,
-          dimancheFinal,
-          modeleFinal,
-          imageFinale,
-          filigraneFinal,
-          convertirNullable(
-            titre
-          ),
-          convertirNullable(
-            texte
-          ),
-          convertirNullable(
-            verset
-          ),
-          convertirNullable(
-            fichierFinal
-          ),
-          statutFinal,
-          convertirNullable(
-            message_erreur
-          ),
+          eglise_id !== undefined
+            ? Number(eglise_id)
+            : assemblees[0].eglise_id,
+
+          nom !== undefined
+            ? nom.trim()
+            : assemblees[0].nom,
+
+          ville !== undefined
+            ? ville
+            : assemblees[0].ville,
+
+          quartier !== undefined
+            ? quartier
+            : assemblees[0].quartier,
+
+          adresse !== undefined
+            ? adresse
+            : assemblees[0].adresse,
+
+          telephone !== undefined
+            ? telephone
+            : assemblees[0].telephone,
+
+          logo,
+
+          actif !== undefined
+            ? Number(actif)
+            : assemblees[0].actif,
+
           id,
         ]
       )
 
       res.json({
         success: true,
-        message:
-          "Publication modifiÃ©e avec succÃ¨s.",
+        message: "Assemblée mise à jour avec succès.",
+        assemblee: {
+          id,
+          eglise_id:
+            eglise_id !== undefined
+              ? Number(eglise_id)
+              : assemblees[0].eglise_id,
+
+          nom:
+            nom !== undefined
+              ? nom.trim()
+              : assemblees[0].nom,
+
+          ville:
+            ville !== undefined
+              ? ville
+              : assemblees[0].ville,
+
+          quartier:
+            quartier !== undefined
+              ? quartier
+              : assemblees[0].quartier,
+
+          adresse:
+            adresse !== undefined
+              ? adresse
+              : assemblees[0].adresse,
+
+          telephone:
+            telephone !== undefined
+              ? telephone
+              : assemblees[0].telephone,
+
+          logo,
+
+          actif:
+            actif !== undefined
+              ? Number(actif)
+              : assemblees[0].actif,
+        },
       })
     } catch (error) {
       console.error(
-        "âŒ MODIFICATION PUBLICATION :",
+        "❌ Erreur mise à jour assemblée :",
         error
       )
 
       res.status(500).json({
         success: false,
         message:
-          "Erreur modification publication.",
+          "Erreur lors de la mise à jour de l'assemblée.",
+        error: error.message,
       })
     }
   }
 )
-
-// ============================================================
-// SUPPRIMER PUBLICATION
-// ============================================================
-
-app.delete(
-  "/api/publications/:id",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const id =
-        req.params.id
-
-      const [
-        rows,
-      ] = await db.query(
-        `
-        SELECT
-          fichier_final
-        FROM publications
-        WHERE id = ?
-        LIMIT 1
-        `,
-        [id]
-      )
-
-      if (
-        rows.length === 0
-      ) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Publication introuvable.",
-        })
-      }
-
-      const fichierFinal =
-        rows[0].fichier_final
-
-      await db.query(
-        `
-        DELETE FROM publications
-        WHERE id = ?
-        `,
-        [id]
-      )
-
-      supprimerFichierPublication(
-        fichierFinal
-      )
-
-      res.json({
-        success: true,
-        message:
-          "Publication supprimÃ©e avec succÃ¨s.",
-      })
-    } catch (error) {
-      console.error(
-        "âŒ SUPPRESSION PUBLICATION :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur suppression publication.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// CONTACT
-// ============================================================
-
-app.post(
-  "/api/contact",
-  async (req, res) => {
-    try {
-      const {
-        nom,
-        email,
-        sujet,
-        message,
-      } = req.body
-
-      if (
-        !nom ||
-        !email ||
-        !message
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Nom, email et message sont obligatoires.",
-        })
-      }
-
-      const [
-        resultat,
-      ] = await db.query(
-        `
-        INSERT INTO messages_contact
-        (
-          nom,
-          email,
-          sujet,
-          message
-        )
-        VALUES (?, ?, ?, ?)
-        `,
-        [
-          nom,
-          email,
-          convertirNullable(
-            sujet
-          ),
-          message,
-        ]
-      )
-
-      if (
-        resend &&
-        process.env.CONTACT_EMAIL
-      ) {
-        try {
-          await resend.emails.send(
-            {
-              from:
-                "BETHEL GLORY MEDIA <onboarding@resend.dev>",
-
-              to: [
-                process.env
-                  .CONTACT_EMAIL,
-              ],
-
-              subject:
-                sujet ||
-                "Nouveau message de contact",
-
-              html: `
-                <div style="font-family:Arial,sans-serif;">
-                  <h2>Nouveau message de contact</h2>
-
-                  <p>
-                    <strong>Nom :</strong>
-                    ${nom}
-                  </p>
-
-                  <p>
-                    <strong>Email :</strong>
-                    ${email}
-                  </p>
-
-                  <p>
-                    <strong>Sujet :</strong>
-                    ${sujet || ""}
-                  </p>
-
-                  <hr />
-
-                  <p>
-                    ${String(
-                      message
-                    ).replace(
-                      /\n/g,
-                      "<br>"
-                    )}
-                  </p>
-                </div>
-              `,
-            }
+      app.listen(
+        PORT,
+        "0.0.0.0",
+        () => {
+          console.log("")
+          console.log(
+            "=============================================="
           )
-        } catch (emailError) {
-          console.error(
-            "âš ï¸ Erreur Resend :",
-            emailError.message
+          console.log(
+            "   BETHEL GLORY MEDIA - API"
           )
+          console.log(
+            "=============================================="
+          )
+          console.log(
+            `ðŸš€ Serveur dÃ©marrÃ© sur le port ${PORT}`
+          )
+          console.log(
+            `ðŸŒ http://localhost:${PORT}`
+          )
+          console.log(
+            `ðŸ“ Uploads : ${uploadsDir}`
+          )
+          console.log(
+            `ðŸ–¼ï¸ Logos : ${logosDir}`
+          )
+          console.log(
+            `ðŸ–¼ï¸ Publications : ${publicationsDir}`
+          )
+          console.log(
+            "=============================================="
+          )
+          console.log("")
         }
-      }
-
-      res.status(201).json({
-        success: true,
-        message:
-          "Votre message a Ã©tÃ© envoyÃ© avec succÃ¨s.",
-        id:
-          resultat.insertId,
-      })
+      )
     } catch (error) {
       console.error(
-        "âŒ CONTACT :",
+        "âŒ Impossible de dÃ©marrer le serveur :",
         error
       )
 
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur lors de l'envoi du message.",
-      })
+      process.exit(1)
     }
   }
-)
 
-// ============================================================
-// MESSAGES CONTACT ADMIN
-// ============================================================
+  // ============================================================
+  // LANCEMENT
+  // ============================================================
 
-app.get(
-  "/api/messages-contact",
-  verifierToken,
-  verifierAdministrateur,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(`
-        SELECT *
-        FROM messages_contact
-        ORDER BY created_at DESC
-      `)
-
-      res.json({
-        success: true,
-        messages:
-          rows,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ MESSAGES CONTACT :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration messages.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// NOTIFICATIONS NON LUES
-// ============================================================
-
-app.get(
-  "/api/notifications/non-lues",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(`
-        SELECT *
-        FROM notifications
-        WHERE lu = 0
-        ORDER BY created_at DESC
-      `)
-
-      res.json({
-        success: true,
-        notifications:
-          rows,
-        total:
-          rows.length,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ NOTIFICATIONS NON LUES :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration notifications.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// NOTIFICATIONS
-// ============================================================
-
-app.get(
-  "/api/notifications",
-  verifierToken,
-  async (req, res) => {
-    try {
-      const [
-        rows,
-      ] = await db.query(`
-        SELECT *
-        FROM notifications
-        ORDER BY created_at DESC
-      `)
-
-      res.json({
-        success: true,
-        notifications:
-          rows,
-      })
-    } catch (error) {
-      console.error(
-        "âŒ NOTIFICATIONS :",
-        error
-      )
-
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur rÃ©cupÃ©ration notifications.",
-      })
-    }
-  }
-)
-
-// ============================================================
-// ERREUR MULTER
-// ============================================================
-
-app.use(
-  (
-    error,
-    req,
-    res,
-    next
-  ) => {
-    if (
-      error instanceof
-      multer.MulterError
-    ) {
-      console.error(
-        "âŒ ERREUR MULTER :",
-        error
-      )
-
-      if (
-        error.code ===
-        "LIMIT_FILE_SIZE"
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Le fichier est trop volumineux. Taille maximale : 100 Mo.",
-        })
-      }
-
-      return res.status(400).json({
-        success: false,
-        message:
-          error.message,
-      })
-    }
-
-    if (
-      error &&
-      error.message &&
-      error.message.includes(
-        "Format d'image"
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          error.message,
-      })
-    }
-
-    next(error)
-  }
-)
-
-// ============================================================
-// ROUTE 404
-// ============================================================
-
-app.use(
-  (req, res) => {
-    res.status(404).json({
-      success: false,
-      message:
-        "Route API introuvable.",
-      route:
-        req.originalUrl,
-    })
-  }
-)
-
-// ============================================================
-// GESTIONNAIRE D'ERREUR GLOBAL
-// ============================================================
-
-app.use(
-  (
-    error,
-    req,
-    res,
-    next
-  ) => {
-    console.error(
-      "âŒ ERREUR SERVEUR :",
-      error
-    )
-
-    if (
-      res.headersSent
-    ) {
-      return next(error)
-    }
-
-    res.status(500).json({
-      success: false,
-      message:
-        "Une erreur interne du serveur est survenue.",
-      error:
-        process.env.NODE_ENV ===
-        "development"
-          ? error.message
-          : undefined,
-    })
-  }
-)
-
-// ============================================================
-// DÃ‰MARRAGE
-// ============================================================
-
-async function demarrerServeur() {
-  try {
-    await verifierStructureUtilisateurs()
-
-    await initialiserTableMessages()
-
-    await initialiserTableThemeAnnee()
-
-    // ========================================================
-    // SYNCHRONISATION DES 42 MODÃˆLES
-    // ========================================================
-
-    await initialiserModelesPublication()
-
-    await db.query(
-      "SELECT 1"
-    )
-
-    console.log(
-      "âœ… Connexion MySQL rÃ©ussie."
-    )
-
-    app.listen(
-      PORT,
-      "0.0.0.0",
-      () => {
-        console.log("")
-        console.log(
-          "=============================================="
-        )
-        console.log(
-          "   BETHEL GLORY MEDIA - API"
-        )
-        console.log(
-          "=============================================="
-        )
-        console.log(
-          `ðŸš€ Serveur dÃ©marrÃ© sur le port ${PORT}`
-        )
-        console.log(
-          `ðŸŒ http://localhost:${PORT}`
-        )
-        console.log(
-          `ðŸ“ Uploads : ${uploadsDir}`
-        )
-        console.log(
-          `ðŸ–¼ï¸ Logos : ${logosDir}`
-        )
-        console.log(
-          `ðŸ–¼ï¸ Publications : ${publicationsDir}`
-        )
-        console.log(
-          "=============================================="
-        )
-        console.log("")
-      }
-    )
-  } catch (error) {
-    console.error(
-      "âŒ Impossible de dÃ©marrer le serveur :",
-      error
-    )
-
-    process.exit(1)
-  }
-}
-
-// ============================================================
-// LANCEMENT
-// ============================================================
-
-demarrerServeur()
+  demarrerServeur()
 
 
 
