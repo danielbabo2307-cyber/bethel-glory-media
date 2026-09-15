@@ -1772,7 +1772,7 @@ app.post(
         return res.status(403).json({
           success: false,
           message:
-            "Ce compte est dÃ©sactivÃ©.",
+            "Ce compte est désactivé.",
         })
       }
 
@@ -1823,7 +1823,7 @@ app.post(
       res.json({
         success: true,
         message:
-          "Connexion rÃ©ussie.",
+          "Connexion reussie.",
         token,
         utilisateur:
           utilisateurRetour,
@@ -1832,7 +1832,7 @@ app.post(
       })
     } catch (error) {
       console.error(
-        "âŒ LOGIN :",
+        "LOGIN :",
         error
       )
 
@@ -1880,14 +1880,14 @@ app.get(
       })
     } catch (error) {
       console.error(
-        "âŒ UTILISATEURS :",
+        " UTILISATEURS :",
         error.message
       )
 
       res.status(500).json({
         success: false,
         message:
-          "Erreur rÃ©cupÃ©ration utilisateurs.",
+          "Erreur de récupération des utilisateurs.",
       })
     }
   }
@@ -1897,66 +1897,177 @@ app.get(
 // UTILISATEUR PAR ID
 // ============================================================
 
-app.get(
-  "/api/utilisateurs/:id",
+app.post(
+  "/api/ai/creation",
   verifierToken,
-  verifierAdministrateur,
   async (req, res) => {
     try {
-      const [
-        rows,
-      ] = await db.query(
-        `
-        SELECT
-          u.id,
-          u.nom,
-          u.prenom,
-          u.email,
-          u.telephone,
-          u.fonction,
-          u.statut,
-          u.role,
-          u.role AS role_nom,
-          u.created_at
-        FROM utilisateurs u
-        WHERE u.id = ?
-        LIMIT 1
-        `,
-        [req.params.id]
-      )
+      const { prompt } = req.body
 
-      if (
-        rows.length === 0
-      ) {
-        return res.status(404).json({
+      // ============================================================
+      // VALIDATION
+      // ============================================================
+
+      if (!prompt) {
+        return res.status(400).json({
           success: false,
-          message:
-            "Utilisateur introuvable.",
+          message: "Le prompt est obligatoire.",
         })
       }
 
-      res.json({
+      if (String(prompt).length > 3000) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Le prompt ne doit pas dépasser 3000 caractères.",
+        })
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({
+          success: false,
+          message:
+            "La clé Gemini n'est pas configurée.",
+        })
+      }
+
+      // ============================================================
+      // MODÈLES
+      // ============================================================
+
+      const modelePrincipal = "gemini-3.7-flash"
+      const modeleSecours = "gemini-3.6-flash"
+
+      // ============================================================
+      // FONCTION DE GÉNÉRATION
+      // ============================================================
+
+      async function genererAvecModele(modele) {
+        console.log(
+          `🤖 GEMINI : tentative avec ${modele}`
+        )
+
+        return await gemini.models.generateContent({
+          model: modele,
+          contents: String(prompt),
+        })
+      }
+
+      // ============================================================
+      // PREMIÈRE TENTATIVE
+      // ============================================================
+
+      let resultat
+
+      try {
+        resultat =
+          await genererAvecModele(
+            modelePrincipal
+          )
+
+        console.log(
+          `✅ GEMINI : réponse obtenue avec ${modelePrincipal}`
+        )
+      } catch (errorPrincipal) {
+        console.error(
+          `⚠️ GEMINI : ${modelePrincipal} indisponible`
+        )
+
+        console.error(
+          errorPrincipal
+        )
+
+        // ========================================================
+        // VÉRIFICATION DU 503
+        // ========================================================
+
+        const est503 =
+          errorPrincipal?.status === 503 ||
+          errorPrincipal?.code === 503 ||
+          String(
+            errorPrincipal?.message || ""
+          ).includes("503") ||
+          String(
+            errorPrincipal?.message || ""
+          ).includes("UNAVAILABLE")
+
+        if (!est503) {
+          throw errorPrincipal
+        }
+
+        // ========================================================
+        // PETITE PAUSE AVANT LE SECOURS
+        // ========================================================
+
+        console.log(
+          "⏳ GEMINI : attente avant utilisation du modèle de secours..."
+        )
+
+        await new Promise(
+          (resolve) =>
+            setTimeout(resolve, 1500)
+        )
+
+        // ========================================================
+        // MODÈLE DE SECOURS
+        // ========================================================
+
+        try {
+          console.log(
+            `🔄 GEMINI : utilisation du modèle de secours ${modeleSecours}`
+          )
+
+          resultat =
+            await genererAvecModele(
+              modeleSecours
+            )
+
+          console.log(
+            `✅ GEMINI : réponse obtenue avec ${modeleSecours}`
+          )
+        } catch (errorSecours) {
+          console.error(
+            `❌ GEMINI : modèle principal et modèle de secours indisponibles`
+          )
+
+          console.error(
+            errorSecours
+          )
+
+          return res.status(503).json({
+            success: false,
+            message:
+              "Le service IA est momentanément indisponible. Veuillez réessayer dans quelques instants.",
+          })
+        }
+      }
+
+      // ============================================================
+      // RÉPONSE
+      // ============================================================
+
+      return res.json({
         success: true,
-        utilisateur:
-          rows[0],
+        texte: resultat.text || "",
       })
     } catch (error) {
       console.error(
-        "âŒ UTILISATEUR ID :",
-        error.message
+        "❌ GEMINI : erreur générale"
       )
 
-      res.status(500).json({
+      console.error(error)
+
+      return res.status(500).json({
         success: false,
         message:
-          "Erreur rÃ©cupÃ©ration utilisateur.",
+          "Erreur lors de la génération IA.",
       })
     }
   }
 )
 
 // ============================================================
-// CRÃ‰ER UTILISATEUR
+// CRÉER UTILISATEUR
 // ============================================================
 
 app.post(
