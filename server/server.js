@@ -47,7 +47,7 @@ const gemini = new GoogleGenAI({
 // BASE DE DONNÃ‰ES
 // ============================================================
 
-const db = mysql.createPool({
+const dbConfig = {
   host: process.env.DB_HOST || "localhost",
   port: Number(process.env.DB_PORT) || 3306,
   user: process.env.DB_USER || "root",
@@ -57,7 +57,18 @@ const db = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-})
+}
+
+if (process.env.DB_SSL === "true") {
+  const caPath = path.join(__dirname, "certs", "isrgrootx1.pem")
+
+  dbConfig.ssl = {
+    ca: fs.readFileSync(caPath),
+    minVersion: "TLSv1.2",
+  }
+}
+
+const db = mysql.createPool(dbConfig)
 
 // ============================================================
 // RESEND
@@ -289,7 +300,7 @@ function supprimerPhoto(photo) {
 // ============================================================
 
 async function envoyerPhotoResponsableCloudinary(
-  
+
   cheminFichier
 ) {
   if (!cheminFichier) {
@@ -1646,70 +1657,122 @@ app.post(
   verifierToken,
   async (req, res) => {
     try {
-      const {
-        prompt,
-      } = req.body
+      const { prompt } = req.body;
 
       if (!prompt) {
         return res.status(400).json({
           success: false,
-          message:
-            "Le prompt est obligatoire.",
-        })
+          message: "Le prompt est obligatoire.",
+        });
       }
 
-      if (
-        String(prompt).length >
-        3000
-      ) {
+      if (String(prompt).length > 3000) {
         return res.status(400).json({
           success: false,
           message:
-            "Le prompt ne doit pas dÃ©passer 3000 caractÃ¨res.",
-        })
+            "Le prompt ne doit pas dépasser 3000 caractères.",
+        });
       }
 
-      if (
-        !process.env.GEMINI_API_KEY
-      ) {
+      if (!process.env.GEMINI_API_KEY) {
         return res.status(500).json({
           success: false,
           message:
-            "La clÃ© Gemini n'est pas configurÃ©e.",
-        })
+            "La clé Gemini n'est pas configurée.",
+        });
       }
 
-      const resultat =
-        await gemini.models.generateContent(
-          {
-            model:
-              "gemini-3.7-flash",
+      let resultat;
 
-            contents:
-              String(prompt),
+      const maxTentatives = 3;
+
+      for (
+        let tentative = 1;
+        tentative <= maxTentatives;
+        tentative++
+      ) {
+        try {
+          resultat =
+            await gemini.models.generateContent({
+              model: "gemini-3.7-flash",
+              contents: String(prompt),
+            });
+
+
+          break;
+        } catch (error) {
+          console.error(
+            `❌ GEMINI - Tentative ${tentative}/${maxTentatives} :`,
+            error
+          );
+
+          const statut = Number(
+            error?.status ?? error?.code
+          );
+
+          // 429 = quota Gemini atteint : ne pas réessayer immédiatement.
+          if (statut === 429) {
+            throw error;
           }
-        )
 
-      res.json({
+          // Réessayer uniquement en cas d'indisponibilité temporaire (503).
+          if (
+            statut !== 503 ||
+            tentative === maxTentatives
+          ) {
+            throw error;
+          }
+
+          await new Promise(
+            (resolve) =>
+              setTimeout(
+                resolve,
+                tentative * 2000
+              )
+          );
+        }
+      }
+
+      return res.status(200).json({
         success: true,
-        texte:
-          resultat.text || "",
-      })
-    } catch (error) {
-      console.error(
-        "âŒ GEMINI :",
-        error
-      )
+        texte: resultat?.text || "",
+      });
+   } catch (error) {
+  console.error(
+    "❌ GEMINI :",
+    error
+  );
 
-      res.status(500).json({
-        success: false,
-        message:
-          "Erreur lors de la gÃ©nÃ©ration IA.",
-      })
-    }
+  const statut =
+    error?.status ||
+    error?.code;
+
+  // 429 = quota Gemini atteint
+  if (statut === 429) {
+    return res.status(429).json({
+      success: false,
+      message:
+        "Le quota gratuit de l’IA a été atteint. Veuillez réessayer plus tard.",
+    });
   }
-)
 
+  // 503 = service Gemini temporairement indisponible
+  if (statut === 503) {
+    return res.status(503).json({
+      success: false,
+      message:
+        "Le service IA est temporairement très sollicité. Veuillez patienter quelques instants puis réessayer.",
+    });
+  }
+
+  return res.status(500).json({
+    success: false,
+    message:
+      "Une erreur est survenue lors de la génération IA.",
+  });
+}
+  }
+);
 // ============================================================
 // AUTHENTIFICATION
 // ============================================================
@@ -1823,7 +1886,7 @@ app.post(
       res.json({
         success: true,
         message:
-          "Connexion reussie.",
+          "Connexion réussie.",
         token,
         utilisateur:
           utilisateurRetour,
@@ -3037,75 +3100,362 @@ async function envoyerLogoAssembleeCloudinary(cheminFichier) {
     }
   }
 )
+
+// ==================================================
+// ROUTE PUBLIQUE : ASSEMBLÉES ACTIVES
+// Accessible sans connexion
+// ==================================================
+
+app.get("/api/assemblees/public", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        a.id,
+        a.eglise_id,
+        a.nom,
+        a.ville,
+        a.quartier,
+        a.adresse,
+        a.telephone,
+        a.logo,
+        a.actif,
+        e.nom AS eglise_nom
+      FROM assemblees a
+      LEFT JOIN eglises e
+        ON e.id = a.eglise_id
+      WHERE a.actif = 1
+      ORDER BY a.nom ASC
+    `)
+
+    const assemblees = rows.map((assemblee) => ({
+      ...assemblee,
+      logo: normaliserLogo(assemblee.logo),
+    }))
+
+    res.json({
+      success: true,
+      assemblees,
+    })
+  } catch (error) {
+    console.error(
+      "❌ Erreur récupération publique des assemblées :",
+      error
+    )
+
+    res.status(500).json({
+      success: false,
+      message: "Erreur récupération des assemblées.",
+    })
+  }
+})
+
   // ============================================================
   // DIMANCHES
   // ============================================================
 
-  app.get(
-    "/api/dimanches",
-    verifierToken,
-    async (req, res) => {
-      try {
-        const {
-          assemblee_id,
-        } = req.query
+// ================================================
+// GÉNÉRER AUTOMATIQUEMENT LES VRAIS DIMANCHES
+// ================================================
 
-        let sql = `
-          SELECT
-            d.*,
-            a.nom AS assemblee_nom
-          FROM dimanches d
-          LEFT JOIN assemblees a
-            ON a.id = d.assemblee_id
-          WHERE d.actif = 1
-        `
+function genererDimanches(nombre = 10)
+{  const dates = [];
+  const date = new Date();
 
-        const params = []
+  // Utiliser l'heure locale pour éviter les décalages de date
+  date.setHours(12, 0, 0, 0);
 
-        if (
-          assemblee_id
-        ) {
-          sql += `
-            AND d.assemblee_id = ?
+  // Dimanche courant si aujourd'hui est dimanche,
+  // sinon prochain dimanche
+  date.setDate(
+    date.getDate() + ((7 - date.getDay()) % 7)
+  );
+
+  for (let i = 0; i < nombre; i++) {
+    const annee = date.getFullYear();
+    const mois = String(date.getMonth() + 1).padStart(2, "0");
+    const jour = String(date.getDate()).padStart(2, "0");
+
+    dates.push({
+      date_dimanche: `${annee}-${mois}-${jour}`,
+      titre: "Culte dominical",
+    });
+
+    date.setDate(date.getDate() + 7);
+  }
+
+  return dates;
+}
+
+// ================================================
+// GÉNÉRATION ET ENREGISTREMENT DES DIMANCHES
+// ================================================
+
+app.post(
+  "/api/dimanches/generer",
+  verifierToken,
+  verifierAdministrateur,
+  async (req, res) => {
+    try {
+      const assembleeId = Number(
+        req.body.assemblee_id
+      );
+
+      const nombre = Number(
+        req.body.nombre ?? 10
+      );
+
+      if (
+        !Number.isSafeInteger(assembleeId) ||
+        assembleeId <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Identifiant de l'assemblée invalide.",
+        });
+      }
+
+      if (
+        !Number.isSafeInteger(nombre) ||
+        nombre < 1 ||
+        nombre > 104
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Le nombre de dimanches doit être compris entre 1 et 104.",
+        });
+      }
+
+      // Vérifier que l'assemblée existe
+      const [assemblees] = await db.query(
+        "SELECT id FROM assemblees WHERE id = ? LIMIT 1",
+        [assembleeId]
+      );
+
+      if (assemblees.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Assemblée introuvable.",
+        });
+      }
+
+      const dates = genererDimanches(nombre);
+
+      let ajoutes = 0;
+      let dejaPresents = 0;
+
+      for (const dimanche of dates) {
+        // Vérifier si cette date existe déjà
+        const [existants] = await db.query(
           `
+            SELECT id
+            FROM dimanches
+            WHERE assemblee_id = ?
+              AND date_dimanche = ?
+            LIMIT 1
+          `,
+          [
+            assembleeId,
+            dimanche.date_dimanche,
+          ]
+        );
 
-          params.push(
-            assemblee_id
-          )
+        if (existants.length > 0) {
+          dejaPresents++;
+          continue;
         }
 
-        sql += `
-          ORDER BY
-            d.date_dimanche DESC,
-            d.id DESC
-        `
+        // Enregistrer le dimanche manquant
+        await db.query(
+          `
+            INSERT INTO dimanches (
+              assemblee_id,
+              date_dimanche,
+              titre,
+              actif
+            )
+            VALUES (?, ?, ?, 1)
+          `,
+          [
+            assembleeId,
+            dimanche.date_dimanche,
+            dimanche.titre,
+          ]
+        );
 
-        const [
-          rows,
-        ] = await db.query(
-          sql,
-          params
-        )
-
-        res.json({
-          success: true,
-          dimanches:
-            rows,
-        })
-      } catch (error) {
-        console.error(
-          "âŒ DIMANCHES :",
-          error
-        )
-
-        res.status(500).json({
-          success: false,
-          message:
-            "Erreur rÃ©cupÃ©ration dimanches.",
-        })
+        ajoutes++;
       }
+
+      return res.status(200).json({
+        success: true,
+        message: "Génération des dimanches terminée.",
+        assemblee_id: assembleeId,
+        dimanches_generes: dates.length,
+        dimanches_ajoutes: ajoutes,
+        dimanches_deja_presents: dejaPresents,
+        dates,
+      });
+    } catch (error) {
+      console.error(
+        "ERREUR GÉNÉRATION DIMANCHES :",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Impossible de générer les dimanches.",
+      });
     }
-  )
+  }
+);
+
+
+
+app.get(
+  "/api/dimanches",
+  verifierToken,
+  async (req, res) => {
+    try {
+      const assembleeId = Number(req.query.assemblee_id);
+
+      if (
+        !Number.isSafeInteger(assembleeId) ||
+        assembleeId <= 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "L'identifiant de l'assemblée est invalide.",
+        });
+      }
+
+      // ============================================================
+      // 1. VÉRIFIER L'ASSEMBLÉE
+      // ============================================================
+
+      const [assemblees] = await db.query(
+        `
+        SELECT id
+        FROM assemblees
+        WHERE id = ?
+        LIMIT 1
+        `,
+        [assembleeId]
+      );
+
+      if (assemblees.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Assemblée introuvable.",
+        });
+      }
+
+      // ============================================================
+      // 2. CALCULER LES 10 PROCHAINS DIMANCHES
+      // ============================================================
+
+      const dates = genererDimanches(10);
+
+      let ajoutes = 0;
+
+      // ============================================================
+      // 3. ENREGISTRER UNIQUEMENT LES DIMANCHES MANQUANTS
+      // ============================================================
+
+      for (const dimanche of dates) {
+        const [existants] = await db.query(
+          `
+          SELECT id
+          FROM dimanches
+          WHERE assemblee_id = ?
+            AND date_dimanche = ?
+          LIMIT 1
+          `,
+          [
+            assembleeId,
+            dimanche.date_dimanche,
+          ]
+        );
+
+        if (existants.length > 0) {
+          continue;
+        }
+
+        await db.query(
+          `
+          INSERT INTO dimanches (
+            assemblee_id,
+            date_dimanche,
+            titre,
+            actif
+          )
+          VALUES (?, ?, ?, 1)
+          `,
+          [
+            assembleeId,
+            dimanche.date_dimanche,
+            dimanche.titre,
+          ]
+        );
+
+        ajoutes++;
+      }
+
+      // ============================================================
+      // 4. RÉCUPÉRER LES DIMANCHES ACTIFS À VENIR
+      // ============================================================
+
+      const [rows] = await db.query(
+        `
+        SELECT
+          d.*,
+          a.nom AS assemblee_nom
+        FROM dimanches d
+        LEFT JOIN assemblees a
+          ON a.id = d.assemblee_id
+        WHERE d.actif = 1
+          AND d.assemblee_id = ?
+          AND d.date_dimanche >= CURDATE()
+        ORDER BY
+          d.date_dimanche ASC,
+          d.id ASC
+        LIMIT 10
+        `,
+        [assembleeId]
+      );
+
+      // ============================================================
+      // 5. ÉVITER LES ANCIENNES RÉPONSES EN CACHE
+      // ============================================================
+
+      res.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
+
+      return res.status(200).json({
+        success: true,
+        assemblee_id: assembleeId,
+        dimanches_generes: dates.length,
+        dimanches_ajoutes: ajoutes,
+        dimanches: rows,
+      });
+
+    } catch (error) {
+      console.error(
+        "ERREUR RÉCUPÉRATION DIMANCHES :",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Erreur lors de la récupération des dimanches.",
+      });
+    }
+  }
+);
+
 
   // ============================================================
   // MODÃˆLES DE PUBLICATION
@@ -4051,6 +4401,10 @@ async function envoyerLogoAssembleeCloudinary(cheminFichier) {
         console.log(
           "☁️ Envoi de la publication vers Cloudinary..."
         )
+        console.log(
+  "DIMANCHES REÇUS EN DÉTAIL :",
+  JSON.stringify(data.dimanches?.slice(0, 2), null, 2)
+);
 
         // ----------------------------------------------------------
         // CLOUDINARY
@@ -4726,6 +5080,47 @@ async function envoyerLogoAssembleeCloudinary(cheminFichier) {
       }
     }
   )
+  
+  // ============================================================
+  // MARQUER UN MESSAGE DE CONTACT COMME LU
+  // ============================================================
+
+app.put(
+  "/api/messages-contact/:id/lu",
+  verifierToken,
+  verifierAdministrateur,
+  async (req, res) => {
+    try {
+      const { id } = req.params
+
+      const [result] = await db.query(
+        "UPDATE messages_contact SET statut = 'lu' WHERE id = ?",
+        [id]
+      )
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Message introuvable."
+        })
+      }
+
+      return res.json({
+        success: true,
+        message: "Message marqué comme lu."
+      })
+
+    } catch (error) {
+      console.error("Erreur marquage message lu :", error)
+
+      return res.status(500).json({
+        success: false,
+        message: "Impossible de marquer le message comme lu."
+      })
+    }
+  }
+)
+
 
   // ============================================================
   // NOTIFICATIONS NON LUES
@@ -5035,13 +5430,13 @@ uploadLogo.single("logo"),  async (req, res) => {
       })
     }
   }
-  
+
 )
 app.put(
   "/api/assemblees/:id",
   verifierToken,
   verifierAdministrateur,
-uploadLogo.single("logo"), 
+uploadLogo.single("logo"),
   async (req, res) => {
     try {
       const id = Number(req.params.id)
